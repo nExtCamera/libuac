@@ -1,25 +1,41 @@
 #include <doctest.h>
-#include <libuac.h>
+#include "libuac.h"
+#include "usb_audio.h"
+#include "uac_parser.h"
 
-TEST_CASE("test uac_context::create()") {
-    auto context = uac::uac_context::create();
-}
-
-TEST_CASE("test queryAllDevices()") {
-    auto context = uac::uac_context::create();
-    
-    auto devices = context->queryAllDevices();
-    CHECK(devices.size() >= 0);
-}
+using namespace uac;
 
 TEST_CASE("test open()") {
-    auto context = uac::uac_context::create();
+    auto context = uac_context::create();
     
-    auto devices = context->queryAllDevices();
+    auto devices = context->query_all_devices();
     REQUIRE(devices.size() >= 1);
 
     auto dev = devices[0];
     auto devHandle = dev->open();
 
+    devHandle->dump(nullptr);
+
     devHandle->close();
+}
+
+
+TEST_CASE("test query_audio_function()") {
+    auto context = uac_context::create();
+    
+    auto devices = context->query_all_devices();
+    REQUIRE(devices.size() >= 1);
+
+    auto dev = devices[0];
+
+    const auto topology = dev->query_audio_function(UAC_TERMINAL_MICROPHONE, UAC_TERMINAL_USB_STREAMING);
+
+    REQUIRE(topology.size() > 0);
+
+    auto& streamIfs = dev->get_stream_interface(topology[0]);
+
+    auto devHandle = dev->open();
+    CHECK(devHandle->is_master_muted(topology[0]) == false);
+    
+    CHECK(devHandle->get_feature_master_volume(topology[0]) > 0);
 }

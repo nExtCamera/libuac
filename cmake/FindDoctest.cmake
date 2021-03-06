@@ -1,19 +1,14 @@
-include(ExternalProject)
-find_package(Git REQUIRED)
+include(FetchContent)
 
-ExternalProject_Add(
+FetchContent_Declare(
     doctest
-    PREFIX ${CMAKE_BINARY_DIR}/doctest
-    GIT_REPOSITORY https://github.com/onqtam/doctest.git
-    TIMEOUT 10
-    UPDATE_COMMAND ${GIT_EXECUTABLE} pull
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-    LOG_DOWNLOAD ON
+    GIT_REPOSITORY  https://github.com/onqtam/doctest.git
+    GIT_TAG         2.4.5
 )
 
+FetchContent_MakeAvailable(doctest)
+
 # Expose required variable (DOCTEST_INCLUDE_DIR) to parent scope
-ExternalProject_Get_Property(doctest source_dir)
-set(DOCTEST_INCLUDE_DIR ${source_dir}/doctest CACHE INTERNAL "Path to include folder for doctest")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${source_dir}/scripts/cmake/")
+message("doctest dir : ${doctest_SOURCE_DIR}")
+set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR}/doctest CACHE INTERNAL "Path to include folder for doctest")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${doctest_SOURCE_DIR}/scripts/cmake/")

@@ -15,27 +15,49 @@
 #pragma once
 
 #include <cstdio>
-#include <string.h>
+#include <cstring>
+#include <config.h>
 
 #ifdef __ANDROID__
 #include <android/log.h>
-#define UVC_DEBUG(format, ...) __android_log_print(ANDROID_LOG_DEBUG, "UVC", "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define UVC_ERROR(format, ...) __android_log_print(ANDROID_LOG_ERROR, "UVC", "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define UVC_ENTER() __android_log_print(ANDROID_LOG_VERBOSE, "UVC", "[%s:%d] begin %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
-#define UVC_EXIT(code) __android_log_print(ANDROID_LOG_VERBOSE, "UVC", "[%s:%d] end %s (%d)\n", basename(__FILE__), __LINE__, __FUNCTION__, code)
-#define UVC_EXIT_VOID() __android_log_print(ANDROID_LOG_VERBOSE, "UVC", "[%s:%d] end %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
 
+#ifdef UAC_ENABLE_LOGGING
+#define LOG_DEBUG(format, ...) __android_log_print(ANDROID_LOG_DEBUG, "UAC", "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) __android_log_print(ANDROID_LOG_WARN, "UAC", "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define LOG_ENTER() __android_log_print(ANDROID_LOG_VERBOSE, "UAC", "[%s:%d] begin %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
+#define LOG_EXIT(code) __android_log_print(ANDROID_LOG_VERBOSE, "UAC", "[%s:%d] end %s (%d)\n", basename(__FILE__), __LINE__, __FUNCTION__, code)
+#define LOG_EXIT_VOID() __android_log_print(ANDROID_LOG_VERBOSE, "UAC", "[%s:%d] end %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
+#else
+#define LOG_DEBUG(...)
+#define LOG_WARN(format, ...)
+#define LOG_ENTER()
+#define LOG_EXIT(code)
+#define LOG_EXIT_VOID()
+#endif //UAC_ENABLE_LOGGING
+
+#ifdef THROW_ON_ERROR
+#define LOG_ERROR(format, ...) throw uac::uac_exception(format, ##__VA_ARGS__)
+#else
+#define LOG_ERROR(format, ...) __android_log_print(ANDROID_LOG_ERROR, "UAC", "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#endif //THROW_ON_ERROR
 #else
 
 #define LOG_DEBUG(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #define LOG_ENTER() fprintf(stderr, "[%s:%d] begin %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
 #define LOG_EXIT(code) fprintf(stderr, "[%s:%d] end %s (%d)\n", basename(__FILE__), __LINE__, __FUNCTION__, code)
 #define LOG_EXIT_VOID() fprintf(stderr, "[%s:%d] end %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
-#endif
 
-#ifdef UVC_VLOG
-    #define UVC_VERBOSE(...) UVC_DEBUG(__VA_ARGS__)
+#ifdef THROW_ON_ERROR
+#define LOG_ERROR(format, ...) throw uac::uac_exception(format, ##__VA_ARGS__)
 #else
-    #define UVC_VERBOSE(...)
+#define LOG_ERROR(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#endif //THROW_ON_ERROR
+
+#endif //__ANDROID__
+
+#ifdef VERBOSE_VLOG
+    #define LOG_VERBOSE(...) LOG_DEBUG(__VA_ARGS__)
+#else
+    #define LOG_VERBOSE(...)
 #endif

@@ -22,7 +22,7 @@ namespace uac {
     /**
      * Table A.2 Audio Interface Subclass Codes
      */
-    enum uac_subclass_code {
+    enum class uac_subclass_code : uint8_t {
         UAC_SUBCLASS_UNDEFINED      = 0x00,
         UAC_SUBCLASS_AUDIOCONTROL   = 0x01,
         UAC_SUBCLASS_AUDIOSTREAMING = 0x02,
@@ -84,16 +84,40 @@ namespace uac {
         UAC_FORMAT_TYPE_III = 0x03
     };
 
+    /**
+     * Frmts Table A.1-3 Audio Data Format Type I-III Codes
+     */
+    enum uac_audio_data_format_type : uint16_t {
+        UAC_FORMAT_DATA_TYPE_I_UNDEFINED = 0x0000,
+        UAC_FORMAT_DATA_PCM = 0x0001,
+        UAC_FORMAT_DATA_PCM8 = 0x0002,
+        UAC_FORMAT_DATA_IEEE_FLOAT = 0x0003,
+        UAC_FORMAT_DATA_ALAW = 0x0004,
+        UAC_FORMAT_DATA_MULAW = 0x0005,
+
+        UAC_FORMAT_DATA_TYPE_II_UNDEFINED = 0x1000,
+        UAC_FORMAT_DATA_MPEG = 0x1001,
+        UAC_FORMAT_DATA_AC3 = 0x1002,
+
+        UAC_FORMAT_DATA_TYPE_III_UNDEFINED = 0x2000,
+        UAC_FORMAT_DATA_IEC1937_AC3 = 0x2001,
+        UAC_FORMAT_DATA_IEC1937_MPEG1 = 0x2002,
+        UAC_FORMAT_DATA_IEC1937_MPEG2 = 0x2003,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_EXT = 0x2004,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_L1_LS = 0x2005,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_L2_LS = 0x2006
+    };
+
     struct uac_ac_header {
         uint16_t bcdADC;
         uint16_t wTotalLength;
+        //uint8_t  bInCollection;
+        //uint8_t  baInterfaceNr[];
     };
 
     struct uac_unit {
         uint8_t unitType;
         uint8_t bUnitID;
-        std::vector<std::shared_ptr<uac_unit>> srcPins;
-
     };
 
     struct uac_input_terminal {
@@ -121,17 +145,43 @@ namespace uac {
     struct uac_feature_unit : uac_unit {
         uint8_t bSourceId;
         uint8_t bControlSize;
+        uint8_t bmaControls[];
     };
 
     struct uac_format_type_desc {
-        uint8_t bFormatType;
+        uac_format_type bFormatType;
     };
+
+    /*=============================
+     *  Audio Streaming Descriptors
+     *=============================*/
     
     struct uac_as_general {
         uint8_t  bTerminalLink;
         uint8_t  bDelay;
-        uint16_t wFormatTag;
-        uac_format_type_desc *formatType;
+        uac_audio_data_format_type wFormatTag;
+        uac_format_type_desc *format = nullptr;
+
+        ~uac_as_general() {
+            free(format);
+            format = nullptr;
+        }
+    };
+
+    /**
+     * Table A-8: Audio Class-Specific Endpoint Descriptor Subtypes
+     */
+    enum uac_ep_desc_type {
+        EP_GENERAL = 0x01
+    };
+
+    /**
+     * Table 4-21: Class-Specific AS Isochronous Audio Data Endpoint Descriptor
+     */
+    struct iso_endpoint_desc {
+        uint8_t bmAttributes;
+        uint8_t bLockDelayUnits;
+        uint16_t wLockDelay;
     };
 
     struct uac_format_type_1 : uac_format_type_desc {
@@ -140,19 +190,57 @@ namespace uac {
         uint8_t bBitResolution;
         uint8_t bSamFreqType;
 
-        // continous sampling freq
+        // continuous sampling freq
         uint32_t tLowerSamFreq;
         uint32_t tUpperSamFreq;
 
-        // discreete sampling freq
-        uint32_t* tSamFreq = nullptr;
-
-        ~uac_format_type_1() {
-            if (tSamFreq != nullptr) delete[] tSamFreq;
-        }
+        // discrete sampling freq
+        uint32_t tSamFreq[];
     };
 
     struct uac_as_format_specific {
     };
 
+    enum uac_request_type {
+        REQ_TYPE_IF_SET = 0x21,
+        REQ_TYPE_IF_GET = 0xA1,
+        REQ_TYPE_EP_SET = 0x22,
+        REQ_TYPE_EP_GET = 0xA2
+    };
+
+    enum uac_request_get {
+        REQ_SET_CUR = 0x01,
+        REQ_SET_MIN = 0x02,
+        REQ_SET_MAX = 0x03,
+        REQ_SET_RES = 0x04,
+        REQ_GET_CUR = 0x81,
+        REQ_GET_MIN = 0x82,
+        REQ_GET_MAX = 0x83,
+        REQ_GET_RES = 0x84
+    };
+
+    /**
+     * Table A-11: Feature Unit Control Selectors
+     */
+    enum uac_feature_unit_selectors {
+        MUTE_CONTROL = 0x01,
+        VOLUME_CONTROL = 0x02,
+        BASS_CONTROL = 0x03,
+        MID_CONTROL = 0x04,
+        TREBLE_CONTROL = 0x05,
+        GRAPHIC_EQUALIZER_CONTROL = 0x06,
+        AUTOMATIC_GAIN_CONTROL = 0x07,
+        DELAY_CONTROL = 0x08,
+        BASS_BOOST_CONTROL = 0x09,
+        LOUDNESS_CONTROL = 0x0A
+    };
+
+    /**
+     * Table A-19: Endpoint Control Selectors
+     */
+    enum ep_control_selectors {
+        SAMPLING_FREQ_CONTROL = 0x01,
+        PITCH_CONTROL = 0x02
+
+    };
 }

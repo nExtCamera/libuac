@@ -6,14 +6,14 @@ find_package(Doctest REQUIRED)
 # add it globally
 include_directories(${DOCTEST_INCLUDE_DIR})
 
-find_package(LibUSB)
-include_directories(${LibUSB_INCLUDE_DIRS})
+include_directories(../src)
 
 # Make test executable
 add_executable(tests
     test.cpp
-    test_init.cpp
+    test_context.cpp
     test_parser.cpp
+    test_usb_device.cpp
     )
 
 target_compile_features(tests PRIVATE cxx_std_17)

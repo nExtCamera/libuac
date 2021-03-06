@@ -13,52 +13,138 @@
 // limitations under the License.
 
 
-#include <libusb-1.0/libusb.h>
+#pragma once
+
+#include <libusb.h>
 #include <memory>
 #include <vector>
+#include <functional>
 
 namespace uac {
-    typedef enum {
-        UAC_SUCCESS = 0,
-        UAC_ERROR_IO = -1
-    } uac_error_t;
+
+    class usb_exception : public std::exception {
+    public:
+        virtual const char* what() const noexcept override = 0;
+        virtual libusb_error error_code() const = 0;
+    };
+
+    /**
+     * Termt10. Terminal Types
+     */
+    enum uac_terminal_type {
+        UAC_TERMINAL_USB_UNDEFINED = 0x100,
+        UAC_TERMINAL_USB_STREAMING = 0x101,
+        UAC_TERMINAL_USB_VENDOR_SPEC = 0x1FF,
+
+        UAC_TERMINAL_INPUT_UNDEFINED = 0x200,
+        UAC_TERMINAL_MICROPHONE = 0x201,
+        UAC_TERMINAL_DESKTOP_MIC = 0x202,
+        UAC_TERMINAL_PERSONAL_MIC = 0x203,
+        UAC_TERMINAL_OMNIDIR_MIC = 0x204,
+        UAC_TERMINAL_MIC_ARRAY = 0x205,
+        UAC_TERMINAL_PROC_MIC_ARRAY = 0x206,
+
+        UAC_TERMINAL_OUTPUT_UNDEFINED = 0x300,
+        UAC_TERMINAL_SPEAKER = 0x301,
+        UAC_TERMINAL_HEADPHONES = 0x302,
+        UAC_TERMINAL_HMD_AUDIO = 0x303,
+        UAC_TERMINAL_DESKTOP_SPEAKER = 0x304,
+        UAC_TERMINAL_ROOM_SPEAKER = 0x305,
+        UAC_TERMINAL_COMM_SPEAKER = 0x306,
+        UAC_TERMINAL_LFR_SPEAKER = 0x307,
+
+        UAC_TERMINAL_EXTERNAL_UNDEFINED = 0x600,
+        UAC_TERMINAL_EXTERNAL_ANALOG = 0x601,
+        UAC_TERMINAL_EXTERNAL_DIGITAL = 0x602,
+
+        UAC_TERMINAL_ANY = 0xF00,
+    };
 
     class uac_device;
     class uac_device_handle;
 
-    class uac_context : public std::enable_shared_from_this<uac_context> {
-        private:
-            libusb_context *usb_context;
-        public:
-            uac_context(libusb_context *libusb_ctx);
-            ~uac_context();
+    /**
+     * The library context.
+     */
+    class uac_context {
+    public:
+        virtual ~uac_context() = default;
+        virtual std::vector<std::shared_ptr<uac_device>> query_all_devices() = 0;
+        
+        virtual std::shared_ptr<uac_device_handle> wrap(int fd) = 0;
 
-            std::vector<std::shared_ptr<uac_device>> queryAllDevices();
-            std::unique_ptr<uac_device> openDevice(libusb_device *usb_device);
-            std::unique_ptr<uac_device> attachDevice(libusb_device *usb_device);
-
-            static std::shared_ptr<uac_context> create();
+        static std::shared_ptr<uac_context> create();
+        static std::shared_ptr<uac_context> create(libusb_context *usb_ctx);
     };
 
+    class uac_audio_function_topology;
+    class uac_stream_if;
+    using ref_uac_audio_function_topology = std::reference_wrapper<const uac_audio_function_topology>;
+
+    /**
+     * The Audio device representation.
+     */
     class uac_device {
-            libusb_device *usb_device;
-            std::shared_ptr<uac_context> context;
+    public:
+        virtual uint16_t get_vid() const = 0;
+        virtual uint16_t get_pid() const = 0;
 
-        public:
-            uac_device(std::shared_ptr<uac_context> context, libusb_device *usb_device);
-            ~uac_device();
+        virtual std::shared_ptr<uac_device_handle> open() = 0;
 
-            std::shared_ptr<uac_device_handle> open();
+        virtual std::vector<ref_uac_audio_function_topology> query_audio_function(uac_terminal_type termIn, uac_terminal_type termOut) const = 0;
+
+        virtual const uac_stream_if& get_stream_interface(const uac_audio_function_topology& topology) const = 0;
+    };
+
+    struct uac_format_type_desc;
+    struct uac_format {
+        uint16_t wFormatTag;
+        uac_format_type_desc* pFormatDesc;
+
+        uint8_t getNumChannels() const;
+        uint8_t getSubframeSize() const;
+        uint8_t getBitResolution() const;
 
     };
 
+    class uac_stream_if {
+    public:
+        virtual int find_stream_setting(int32_t sampleRate) const = 0;
+        virtual int get_bytes_per_transfer(uint8_t settingIdx) const = 0;
+        virtual std::vector<uac_format> getFormats() const = 0;
+    };
+
+    class uac_stream_handle;
+    using stream_cb_func = std::function<void(uint8_t*, int)>;
+
+    /**
+     * The device can be operated through this handle.
+     */
     class uac_device_handle {
-            libusb_device_handle *dev_handle;
+    public:
+        virtual void close() = 0;
+        virtual std::shared_ptr<uac_device> get_device() const = 0;
+        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) = 0;
+        virtual void detach() = 0;
 
-        public:
-            uac_device_handle(libusb_device_handle *dev_handle);
+        virtual std::string getName() const = 0;
 
-            void close();
+        virtual bool is_master_muted(const uac_audio_function_topology &topology) = 0;
+        virtual int16_t get_feature_master_volume(const uac_audio_function_topology &topology) = 0;
 
+        virtual void dump(FILE *f) const = 0;
+    };
+
+    /**
+     * A handle to the opened audio stream.
+     */
+    class uac_stream_handle {
+    public:
+        virtual void stop() = 0;
+    };
+
+    class uac_audio_function_topology {
+    public:
+        virtual bool contains_terminal(uac_terminal_type terminalType) const = 0;
     };
 }
