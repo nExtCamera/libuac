@@ -29,7 +29,10 @@ namespace uac {
         explicit uac_config_desc(libusb_device *udev) {
             int errval = libusb_get_active_config_descriptor(udev, &config);
             if (errval != LIBUSB_SUCCESS) {
-                throw usb_exception_impl("libusb_get_active_config_descriptor()", (libusb_error)errval);
+                errval = libusb_get_config_descriptor(udev, 0, &config);
+                if (errval != LIBUSB_SUCCESS) {
+                    throw usb_exception_impl("libusb_get_config_descriptor()", (libusb_error) errval);
+                }
             }
         }
         ~uac_config_desc() {
@@ -388,7 +391,7 @@ namespace uac {
             }
             
             if (ifdesc->bNumEndpoints != 1) {
-                LOG_ERROR("Invalid number of endpoints in this interface: %d", ifdesc->bNumEndpoints);
+                LOG_ERROR("Invalid number of endpoints in this interface(%d): %d", i, ifdesc->bNumEndpoints);
             } else {
                 LOG_DEBUG("altsetting endpointAddress=%x, wMaxPacketSize=%d", ifdesc->endpoint->bEndpointAddress, ifdesc->endpoint->wMaxPacketSize);
                 auto& epDesc = altsetting.endpoint;

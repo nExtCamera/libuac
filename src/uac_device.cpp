@@ -42,13 +42,12 @@ namespace uac {
     }
 
     void uac_device_impl::fix_device_quirks(libusb_device_descriptor &desc) {
-        if (desc.idVendor == 0x534d
-        && desc.idProduct == 0x2109) {
+        if (desc.idVendor == 0x534d && (desc.idProduct == 0x2109 || desc.idProduct == 0x0021)) {
             auto& setting = audiocontrol->streams.back();
             auto format = (uac_format_type_1*)(setting.altsettings[0].general.format);
             format->bNrChannels = 2;
             format->tSamFreq[0] = 48000;
-            LOG_DEBUG("Apply Quirk!!");
+            LOG_DEBUG("Apply device quirks!!");
         }
     }
 
