@@ -48,7 +48,7 @@ static void setupSDL() {
     SDL_AudioSpec audioSpec = {0,};
     audioSpec.freq = 48000,
     audioSpec.format = AUDIO_S16;
-    audioSpec.channels = 1;
+    audioSpec.channels = 2;
     audioSpec.samples = 512;
     audioSpec.callback = nullptr;
     audioSpec.userdata = nullptr;

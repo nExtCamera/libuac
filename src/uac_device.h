@@ -59,6 +59,7 @@ namespace uac {
         void detach() override;
 
         std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) override;
+        std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) override;
 
         std::string getName() const override;
 

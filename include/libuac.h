@@ -22,14 +22,30 @@
 
 namespace uac {
 
+    /**
+     * @brief The exception class for usb errors
+     * 
+     * This exception holds an error code from libusb calls.
+     */
     class usb_exception : public std::exception {
     public:
+        /**
+         * @brief A detailed message
+         * 
+         * @return const char* 
+         */
         virtual const char* what() const noexcept override = 0;
+
+        /**
+         * @brief The libusb error code
+         * 
+         * @return libusb_error 
+         */
         virtual libusb_error error_code() const = 0;
     };
 
     /**
-     * Termt10. Terminal Types
+     * @brief Termt10. Terminal Types
      */
     enum uac_terminal_type {
         UAC_TERMINAL_USB_UNDEFINED = 0x100,
@@ -64,7 +80,10 @@ namespace uac {
     class uac_device_handle;
 
     /**
-     * The library context.
+     * @brief The libuac context
+     * 
+     * All events and resources are managed under this context.
+     * Usually, a single context should be enough for most use cases.
      */
     class uac_context {
     public:
@@ -99,7 +118,7 @@ namespace uac {
     struct uac_format_type_desc;
     struct uac_format {
         uint16_t wFormatTag;
-        uac_format_type_desc* pFormatDesc;
+        std::shared_ptr<uac_format_type_desc> pFormatDesc;
 
         uint8_t getNumChannels() const;
         uint8_t getSubframeSize() const;
@@ -125,6 +144,7 @@ namespace uac {
         virtual void close() = 0;
         virtual std::shared_ptr<uac_device> get_device() const = 0;
         virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) = 0;
+        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) = 0;
         virtual void detach() = 0;
 
         virtual std::string getName() const = 0;
@@ -141,6 +161,7 @@ namespace uac {
     class uac_stream_handle {
     public:
         virtual void stop() = 0;
+        virtual void setSamplingRate(const uint32_t samplingRate) = 0;
     };
 
     class uac_audio_function_topology {

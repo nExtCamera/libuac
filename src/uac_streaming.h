@@ -27,8 +27,10 @@ namespace uac {
         uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, uint8_t altsetting, const uac_endpoint_desc &endpointDesc, const uac::uac_as_general& settings);
         ~uac_stream_handle_impl();
 
-        void start(stream_cb_func cb_func);
+        void start(stream_cb_func stream_cb_func, int burst);
         void stop() override;
+
+        void setSamplingRate(const uint32_t samplingRate) override;
         
         stream_cb_func cb_func;
 
@@ -46,6 +48,7 @@ namespace uac {
         uint8_t bInterfaceNr;
         uint8_t current_altsetting;
         uac_endpoint_desc endpoint_desc;
+        uint32_t target_sampling_rate;
 
         bool active = false;
         std::vector<libusb_transfer*> transfers;

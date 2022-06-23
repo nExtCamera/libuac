@@ -43,11 +43,11 @@ namespace uac {
 
     void uac_device_impl::fix_device_quirks(libusb_device_descriptor &desc) {
         if (desc.idVendor == 0x534d && (desc.idProduct == 0x2109 || desc.idProduct == 0x0021)) {
+            LOG_DEBUG("Apply device quirks!!");
             auto& setting = audiocontrol->streams.back();
-            auto format = (uac_format_type_1*)(setting.altsettings[0].general.format);
+            auto format = (uac_format_type_1*)(setting.altsettings[0].general.format.get());
             format->bNrChannels = 2;
             format->tSamFreq[0] = 48000;
-            LOG_DEBUG("Apply device quirks!!");
         }
     }
 
@@ -126,14 +126,20 @@ namespace uac {
     void uac_device_handle_impl::detach() {
         LOG_ENTER();
         if (usb_handle != nullptr) {
-            LOG_DEBUG("release AC intf(%d)", device->audiocontrol->bInterfaceNumber);
-            libusb_release_interface(usb_handle, device->audiocontrol->bInterfaceNumber);
+            int bInterfaceNumber = device->audiocontrol->bInterfaceNumber;
+            LOG_DEBUG("release AC intf(%d)", bInterfaceNumber);
+            libusb_release_interface(usb_handle, bInterfaceNumber);
         }
     }
 
     std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) {
+        return start_streaming(streamIf, setting, cb_func, 1, 0);
+    }
+
+    std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) {
         auto* streamIfImpl = static_cast<const uac_stream_if_impl*>(&streamIf);
-        if (setting < 0 || setting >= streamIfImpl->altsettings.size()) throw std::invalid_argument("invalid setting");
+        if (setting >= streamIfImpl->altsettings.size()) throw std::invalid_argument("invalid format");
+        if (burst < 1) throw std::invalid_argument("invalid burst value");
 
         LOG_DEBUG("claim AC intf(%d)", device->audiocontrol->bInterfaceNumber);
         int errval = libusb_claim_interface(usb_handle, device->audiocontrol->bInterfaceNumber);
@@ -142,8 +148,9 @@ namespace uac {
         }
 
         auto& altsetting = streamIfImpl->altsettings[setting];
-        auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, setting+1, altsetting.endpoint, altsetting.general);
-        streamHandle->start(cb_func);
+        auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting.bAlternateSetting, altsetting.endpoint, altsetting.general);
+        streamHandle->setSamplingRate(samplingRate);
+        streamHandle->start(cb_func, burst);
         return streamHandle;
     }
 
@@ -258,7 +265,7 @@ namespace uac {
                 fprintf(f, "\t  bTerminalLink: %d\n", altsetting.general.bTerminalLink);
                 fprintf(f, "\t  wFormatTag: 0x%04x\n", altsetting.general.wFormatTag);
                 fprintf(f, "\t  bDelay: %d\n", altsetting.general.bDelay);
-                dump_format(f, altsetting.general.format);
+                dump_format(f, altsetting.general.format.get());
                 fprintf(f, "\t  wMaxPacketSize: %d\n", altsetting.endpoint.wMaxPacketSize);
             }
         }

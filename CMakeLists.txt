@@ -23,6 +23,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 
+include(GenerateExportHeader)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 set(SOURCES
         src/uac_context.cpp
@@ -34,6 +37,9 @@ set(SOURCES
 configure_file(src/config.h.in config.h @ONLY)
 
 add_library(uac ${SOURCES})
+
+
+generate_export_header(uac)
 
 # Specify directories which the compiler should look for headers
 target_include_directories(uac

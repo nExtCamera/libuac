@@ -19,7 +19,6 @@
 #include "logging.h"
 #include "uac_exceptions.h"
 
-#define NUM_ISO_PACKETS 1
 #define NUM_ISO_TRANSFERS 3
 
 namespace uac {
@@ -99,6 +98,8 @@ namespace uac {
         if (errval != LIBUSB_SUCCESS) {
             throw usb_exception_impl("libusb_claim_interface()", (libusb_error)errval);
         }
+        uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
+        target_sampling_rate = format->tSamFreq[0];
     }
 
     uac_stream_handle_impl::~uac_stream_handle_impl() {
@@ -110,15 +111,14 @@ namespace uac {
         }
     }
 
-    void uac_stream_handle_impl::start(stream_cb_func cb_func) {
-        this->cb_func = std::move(cb_func);
-        const int iso_packets = NUM_ISO_PACKETS;
+    void uac_stream_handle_impl::start(stream_cb_func stream_cb_func, int burst) {
+        this->cb_func = std::move(stream_cb_func);
+        const int iso_packets = burst;
         const int total_transfer_size = iso_packets * endpoint_desc.wMaxPacketSize;
         LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", endpoint_desc.wMaxPacketSize, total_transfer_size);
-        uac_format_type_1 *format = (uac_format_type_1*) settings.format;
         auto bmAttributes = endpoint_desc.iso_desc.bmAttributes;
         if (bmAttributes & SAMPLING_FREQ_CONTROL) { // the endpoints supports sampling frequency, so probe it
-            set_sampling_freq(format->tSamFreq[0]);
+            set_sampling_freq(target_sampling_rate);
         }
 
         LOG_DEBUG("set_altsetting %d at intf(%d) ep 0x%x", current_altsetting, bInterfaceNr, endpoint_desc.bEndpointAddress);
@@ -182,6 +182,15 @@ namespace uac {
         transfers.clear();
     }
 
+    void uac_stream_handle_impl::setSamplingRate(const uint32_t samplingRate) {
+        if (samplingRate == 0) {
+            uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
+            target_sampling_rate = format->tSamFreq[0];
+        } else {
+            target_sampling_rate = samplingRate;
+        }
+    }
+
     void uac_stream_handle_impl::set_sampling_freq(uint32_t sampling) {
         const int cs = SAMPLING_FREQ_CONTROL;
         const int ep = endpoint_desc.bEndpointAddress;
@@ -230,7 +239,7 @@ namespace uac {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc);
+                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
                 return fmt->bNrChannels;
             default:
                 return 0;
@@ -241,7 +250,7 @@ namespace uac {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc);
+                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
                 return fmt->bSubframeSize;
             default:
                 return 0;
@@ -252,7 +261,7 @@ namespace uac {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc);
+                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
                 return fmt->bBitResolution;
             default:
                 return 0;

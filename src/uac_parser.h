@@ -89,6 +89,7 @@ namespace uac {
     };
 
     struct uac_altsetting {
+        uint8_t bAlternateSetting;
         uac_as_general general;
         uac_endpoint_desc endpoint;
 

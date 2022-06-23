@@ -160,12 +160,7 @@ namespace uac {
         uint8_t  bTerminalLink;
         uint8_t  bDelay;
         uac_audio_data_format_type wFormatTag;
-        uac_format_type_desc *format = nullptr;
-
-        ~uac_as_general() {
-            free(format);
-            format = nullptr;
-        }
+        std::shared_ptr<uac_format_type_desc> format;
     };
 
     /**

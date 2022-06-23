@@ -334,11 +334,11 @@ namespace uac {
         uint8_t bFormatType = data[3];
         switch (bFormatType) {
         case UAC_FORMAT_TYPE_I:
-            generalDesc.format = parse_as_format_type_1(data, size);
+            generalDesc.format = std::shared_ptr<uac_format_type_desc>(parse_as_format_type_1(data, size));
             break;
         
         default:
-            generalDesc.format = static_cast<uac_format_type_desc *>(malloc(sizeof(uac_format_type_desc)));
+            generalDesc.format = std::shared_ptr<uac_format_type_desc>((uac_format_type_desc*)malloc(sizeof(uac_format_type_desc)));
             generalDesc.format->bFormatType = static_cast<uac_format_type>(bFormatType);
             break;
         }
@@ -360,14 +360,18 @@ namespace uac {
     }
 
     void parse_audiostreaming_intf(uac_stream_if_impl &stream_if, const libusb_interface_descriptor *altsettings, int num_altsetting) {
-        stream_if.altsettings.resize(num_altsetting-1);
         // skip altsetting 0, because it is non-configurable
         for (size_t i = 1; i < num_altsetting; ++i) {
-            auto& altsetting = stream_if.altsettings[i-1];
             auto ifdesc = &altsettings[i];
+            LOG_DEBUG("parsing altsetting=%d descriptor...", ifdesc->bAlternateSetting);
+            auto& altsetting = stream_if.altsettings.emplace_back();
             auto data = ifdesc->extra;
             int remaining = ifdesc->extra_length;
-            LOG_DEBUG("parsing altsetting=%d descriptor...", ifdesc->bAlternateSetting);
+
+            altsetting.bAlternateSetting = ifdesc->bAlternateSetting;
+
+            bool hasGeneralDescriptor = false;
+            bool hasFormatDescriptor = false;
             while (remaining >= 3) {
                 int descSize = data[0];
                 auto subtype = data[2];
@@ -375,10 +379,12 @@ namespace uac {
                 case UAC_AS_GENERAL:
                     LOG_DEBUG("got AS_GENERAL descriptor");
                     parse_as_general(altsetting.general, data, descSize);
+                    hasGeneralDescriptor = true;
                     break;
                 case UAC_AS_FORMAT_TYPE:
                     LOG_DEBUG("got AS_FORMAT_TYPE descriptor");
                     parse_as_format_type(altsetting.general, data, descSize);
+                    hasFormatDescriptor = true;
                     break;
                 case UAC_AS_FORMAT_SPECIFIC:
                     LOG_DEBUG("got AS_FORMAT_SPECIFIC descriptor");
@@ -389,8 +395,14 @@ namespace uac {
                 remaining -= descSize;
                 data += descSize;
             }
+
+            if (!hasGeneralDescriptor || !hasFormatDescriptor || ifdesc->bNumEndpoints == 0) {
+                stream_if.altsettings.pop_back();
+                continue;
+            }
             
             if (ifdesc->bNumEndpoints != 1) {
+                stream_if.altsettings.pop_back();
                 LOG_ERROR("Invalid number of endpoints in this interface(%d): %d", i, ifdesc->bNumEndpoints);
             } else {
                 LOG_DEBUG("altsetting endpointAddress=%x, wMaxPacketSize=%d", ifdesc->endpoint->bEndpointAddress, ifdesc->endpoint->wMaxPacketSize);
@@ -399,6 +411,9 @@ namespace uac {
                 epDesc.wMaxPacketSize = ifdesc->endpoint->wMaxPacketSize;
                 if ((ifdesc->endpoint->bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_ISOCHRONOUS) {
                     parse_iso_ep(epDesc.iso_desc, ifdesc->endpoint->extra, ifdesc->endpoint->extra_length);
+                } else {
+                    LOG_DEBUG("Unsupported transfer type.");
+                    stream_if.altsettings.pop_back();
                 }
             }
         }
@@ -446,7 +461,7 @@ namespace uac {
         uac_format_type_1 *format1;
         switch (format->bFormatType) {
             case UAC_FORMAT_TYPE_I:
-                format1 = static_cast<uac_format_type_1 *>(format);
+                format1 = static_cast<uac_format_type_1 *>(format.get());
                 if (format1->bSamFreqType == 0) {
                     result = format1->tLowerSamFreq <= sampleRate &&
                     sampleRate <= format1->tUpperSamFreq;
