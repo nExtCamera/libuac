@@ -19,7 +19,7 @@
 #include "logging.h"
 #include "uac_exceptions.h"
 
-#define NUM_ISO_TRANSFERS 3
+#define NUM_ISO_TRANSFERS 16
 
 namespace uac {
 
