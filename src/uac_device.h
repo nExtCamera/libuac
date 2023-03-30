@@ -36,6 +36,8 @@ namespace uac {
 
         std::shared_ptr<uac_device_handle> wrapHandle(libusb_device_handle *h_dev);
 
+        bool hasQuirkSwapChannels() const;
+
     private:
         void fix_device_quirks(libusb_device_descriptor &desc);
 
@@ -44,6 +46,9 @@ namespace uac {
         std::unique_ptr<uac_audiocontrol> audiocontrol;
 
         friend class uac_device_handle_impl;
+
+        // device quirks
+        bool quirk_swap_channels = false;
     };
 
     class uac_device_handle_impl : public uac_device_handle, public std::enable_shared_from_this<uac_device_handle_impl> {

@@ -34,10 +34,16 @@ namespace uac {
                     //LOG_DEBUG("packet %d actual_len=%d", packet_id, packet->actual_length);
                     if (packet->status == LIBUSB_TRANSFER_COMPLETED && packet->actual_length > 0) {
                         uint8_t *pktbuf = libusb_get_iso_packet_buffer(transfer, packet_id);
+                        if (strmh->offset_stream > 0) {
+                            uint offset = std::min(strmh->offset_stream, packet->actual_length);
+                            pktbuf += offset;
+                            packet->actual_length -= offset;
+                            strmh->offset_stream -= offset;
+                            LOG_DEBUG("SWAP CHANNELS packet %d actual_len=%d offset=%d", packet_id, packet->actual_length, offset);
+                        }
                         strmh->cb_func(pktbuf, packet->actual_length);
                     }
                 }
-                
             // fall through
             case LIBUSB_TRANSFER_TIMED_OUT:
                 // resubmit transfer
@@ -100,6 +106,11 @@ namespace uac {
         }
         uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
         target_sampling_rate = format->tSamFreq[0];
+        stride = format->bSubframeSize * format->bNrChannels;
+
+        if (dev_handle->device->hasQuirkSwapChannels()) {
+            offset_stream = format->bSubframeSize;
+        }
     }
 
     uac_stream_handle_impl::~uac_stream_handle_impl() {

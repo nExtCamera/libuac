@@ -37,6 +37,11 @@ namespace uac {
         std::mutex mMutex;
         std::condition_variable mCv;
         int mActiveTransfers;
+
+        uint stride;
+
+        // quirks
+        uint offset_stream;
     protected:
         void set_sampling_freq(uint32_t sampling);
         uint32_t get_sampling_freq();

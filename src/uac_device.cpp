@@ -48,7 +48,12 @@ namespace uac {
             auto format = (uac_format_type_1*)(setting.altsettings[0].general.format.get());
             format->bNrChannels = 2;
             format->tSamFreq[0] = 48000;
+            quirk_swap_channels = true;
         }
+    }
+
+    bool uac_device_impl::hasQuirkSwapChannels() const {
+        return quirk_swap_channels;
     }
 
     uint16_t uac_device_impl::get_vid() const {
