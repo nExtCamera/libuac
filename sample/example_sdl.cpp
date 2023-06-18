@@ -111,15 +111,15 @@ int main() {
             goto cleanup;
         }
         auto dev = devices[0];
-        auto funcs = dev->query_audio_function(uac::UAC_TERMINAL_EXTERNAL_UNDEFINED, uac::UAC_TERMINAL_USB_STREAMING);
-        if (funcs.empty()) {
+        auto routes = dev->query_audio_routes(uac::UAC_TERMINAL_EXTERNAL_UNDEFINED, uac::UAC_TERMINAL_USB_STREAMING);
+        if (routes.empty()) {
             SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "No USB streaming output!");
             goto cleanup;
         }
 
-        auto& topology = funcs[0];
+        auto& route = routes[0];
 
-        auto& streamIfs = dev->get_stream_interface(funcs[0]);
+        auto& streamIfs = dev->get_stream_interface(route);
         // if (streamIfs.empty()) {
         //     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "No streaming interfaces for selected Audio Function!");
         //     goto cleanup;
@@ -128,8 +128,8 @@ int main() {
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Open device...");
         auto devHandle = dev->open();
 
-        //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Is Master Muted: %d",  devHandle->is_master_muted(topology));
-        //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Master volume: %d",  devHandle->get_feature_master_volume(topology));
+        //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Is Master Muted: %d",  devHandle->is_master_muted(route));
+        //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Master volume: %d",  devHandle->get_feature_master_volume(route));
         int setting = streamIfs.find_stream_setting(48000);
 
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Start streaming...");

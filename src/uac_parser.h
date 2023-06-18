@@ -72,9 +72,9 @@ namespace uac {
         uac_topology_entity* link_source(std::shared_ptr<uac_input_terminal> terminal);
     };
 
-    class uac_audio_function_topology_impl : public uac_audio_function_topology {
+    class uac_audio_route_impl : public uac_audio_route {
     public:
-        uac_audio_function_topology_impl(std::shared_ptr<uac_topology_entity> entry);
+        uac_audio_route_impl(std::shared_ptr<uac_topology_entity> entry);
         bool contains_terminal(uac_terminal_type terminalType) const override;
 
         std::shared_ptr<uac_topology_entity> entry;
@@ -101,7 +101,7 @@ namespace uac {
         uac_stream_if_impl(uint8_t bInterfaceNr) : bInterfaceNr(bInterfaceNr) {}
         int find_stream_setting(int32_t sampleRate) const override;
         int get_bytes_per_transfer(uint8_t settingIdx) const override;
-        std::vector<uac_format> getFormats() const override;
+        std::vector<uac_format> get_formats() const override;
 
         uint8_t bInterfaceNr;
         std::vector<uac_altsetting> altsettings;
@@ -111,7 +111,7 @@ namespace uac {
     public:
         uac_audiocontrol(uint8_t bInterfaceNr, uint8_t iInterface) : bInterfaceNumber(bInterfaceNr), iInterface(iInterface) {}
         void configure_audio_function();
-        const std::vector<uac_audio_function_topology_impl>& audio_functions() {
+        const std::vector<uac_audio_route_impl>& audio_routes() {
             return audioFunctionTopology;
         }
 
@@ -124,11 +124,11 @@ namespace uac {
         const uint8_t bInterfaceNumber;
         const uint8_t iInterface;
     private:
-        uac_audio_function_topology_impl build_audio_topology(std::shared_ptr<uac_output_terminal> outputTerminal);
+        uac_audio_route_impl build_audio_topology(std::shared_ptr<uac_output_terminal> outputTerminal);
         std::shared_ptr<uac_unit> find_unit(int id);
         std::shared_ptr<uac_input_terminal> find_input_terminal(int id);
 
-        std::vector<uac_audio_function_topology_impl> audioFunctionTopology;
+        std::vector<uac_audio_route_impl> audioFunctionTopology;
     };
 
     std::unique_ptr<uac_audiocontrol> uac_scan_device(libusb_device *udev);

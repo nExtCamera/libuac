@@ -30,7 +30,7 @@ namespace uac {
         void start(stream_cb_func stream_cb_func, int burst);
         void stop() override;
 
-        void setSamplingRate(const uint32_t samplingRate) override;
+        void set_sampling_rate(const uint32_t samplingRate) override;
         
         stream_cb_func cb_func;
 

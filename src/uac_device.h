@@ -30,9 +30,9 @@ namespace uac {
 
         std::shared_ptr<uac_device_handle> open() override;
 
-        std::vector<ref_uac_audio_function_topology> query_audio_function(uac_terminal_type termIn, uac_terminal_type termOut) const override;
+        std::vector<ref_uac_audio_route> query_audio_routes(uac_terminal_type termIn, uac_terminal_type termOut) const override;
 
-        const uac_stream_if& get_stream_interface(const uac_audio_function_topology& topology) const override;
+        const uac_stream_if& get_stream_interface(const uac_audio_route& route) const override;
 
         std::shared_ptr<uac_device_handle> wrapHandle(libusb_device_handle *h_dev);
 
@@ -66,10 +66,10 @@ namespace uac {
         std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) override;
         std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) override;
 
-        std::string getName() const override;
+        std::string get_name() const override;
 
-        bool is_master_muted(const uac_audio_function_topology &topology) override;
-        int16_t get_feature_master_volume(const uac_audio_function_topology &topology) override;
+        bool is_master_muted(const uac_audio_route &route) override;
+        int16_t get_feature_master_volume(const uac_audio_route &route) override;
 
         void dump(FILE *f) const override;
 

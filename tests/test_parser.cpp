@@ -26,16 +26,16 @@ TEST_CASE("test building audio function topology") {
     ac.units.push_back(std::make_shared<uac_feature_unit>(ftunit));
 
     ac.configure_audio_function();
-    REQUIRE(ac.audio_functions().size() == 1);
+    REQUIRE(ac.audio_routes().size() == 1);
 
-    auto topology = ac.audio_functions()[0];
+    auto route = ac.audio_routes()[0];
 
-    REQUIRE(topology.entry->outTerminal->bTerminalID == ot.bTerminalID);
+    REQUIRE(route.entry->outTerminal->bTerminalID == ot.bTerminalID);
 
-    ref_uac_audio_function_topology refTopology = topology;
-    std::vector<ref_uac_audio_function_topology> list;
-    list.push_back(refTopology);
-    const uac_audio_function_topology& baseTopology = list[0];
+    ref_uac_audio_route ref_route = route;
+    std::vector<ref_uac_audio_route> list;
+    list.push_back(ref_route);
+    const uac_audio_route& base_route = list[0];
 
     //const auto derivedTopology = dynamic_cast<const uac_audio_function_topology_impl&>(baseTopology);
 }
@@ -49,7 +49,7 @@ TEST_CASE("test topology()") {
 
     auto entry = std::make_shared<uac_topology_entity>(std::make_shared<uac_output_terminal>(ot));
     entry->link_source(std::make_shared<uac_input_terminal>(it));
-    uac_audio_function_topology_impl topology(entry);
+    uac_audio_route_impl topology(entry);
 
     CHECK(topology.contains_terminal(UAC_TERMINAL_USB_STREAMING) == true);
     CHECK(topology.contains_terminal(UAC_TERMINAL_USB_UNDEFINED) == true);

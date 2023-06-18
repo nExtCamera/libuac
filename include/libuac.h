@@ -96,9 +96,9 @@ namespace uac {
         static std::shared_ptr<uac_context> create(libusb_context *usb_ctx);
     };
 
-    class uac_audio_function_topology;
+    class uac_audio_route;
     class uac_stream_if;
-    using ref_uac_audio_function_topology = std::reference_wrapper<const uac_audio_function_topology>;
+    using ref_uac_audio_route = std::reference_wrapper<const uac_audio_route>;
 
     /**
      * The Audio device representation.
@@ -110,19 +110,23 @@ namespace uac {
 
         virtual std::shared_ptr<uac_device_handle> open() = 0;
 
-        virtual std::vector<ref_uac_audio_function_topology> query_audio_function(uac_terminal_type termIn, uac_terminal_type termOut) const = 0;
+        virtual std::vector<ref_uac_audio_route> query_audio_routes(uac_terminal_type termIn, uac_terminal_type termOut) const = 0;
 
-        virtual const uac_stream_if& get_stream_interface(const uac_audio_function_topology& topology) const = 0;
+        virtual const uac_stream_if& get_stream_interface(const uac_audio_route& route) const = 0;
     };
 
     struct uac_format_type_desc;
+    /**
+     * @brief Audio format.
+     * 
+     */
     struct uac_format {
         uint16_t wFormatTag;
         std::shared_ptr<uac_format_type_desc> pFormatDesc;
 
-        uint8_t getNumChannels() const;
-        uint8_t getSubframeSize() const;
-        uint8_t getBitResolution() const;
+        uint8_t get_num_channels() const;
+        uint8_t get_subframe_size() const;
+        uint8_t get_bit_resolution() const;
 
     };
 
@@ -130,7 +134,7 @@ namespace uac {
     public:
         virtual int find_stream_setting(int32_t sampleRate) const = 0;
         virtual int get_bytes_per_transfer(uint8_t settingIdx) const = 0;
-        virtual std::vector<uac_format> getFormats() const = 0;
+        virtual std::vector<uac_format> get_formats() const = 0;
     };
 
     class uac_stream_handle;
@@ -147,10 +151,10 @@ namespace uac {
         virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) = 0;
         virtual void detach() = 0;
 
-        virtual std::string getName() const = 0;
+        virtual std::string get_name() const = 0;
 
-        virtual bool is_master_muted(const uac_audio_function_topology &topology) = 0;
-        virtual int16_t get_feature_master_volume(const uac_audio_function_topology &topology) = 0;
+        virtual bool is_master_muted(const uac_audio_route &route) = 0;
+        virtual int16_t get_feature_master_volume(const uac_audio_route &route) = 0;
 
         virtual void dump(FILE *f) const = 0;
     };
@@ -161,10 +165,14 @@ namespace uac {
     class uac_stream_handle {
     public:
         virtual void stop() = 0;
-        virtual void setSamplingRate(const uint32_t samplingRate) = 0;
+        virtual void set_sampling_rate(const uint32_t samplingRate) = 0;
     };
 
-    class uac_audio_function_topology {
+    /**
+     * @brief 
+     * 
+     */
+    class uac_audio_route {
     public:
         virtual bool contains_terminal(uac_terminal_type terminalType) const = 0;
     };

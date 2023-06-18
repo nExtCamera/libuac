@@ -28,14 +28,14 @@ TEST_CASE("test query_audio_function()") {
 
     auto dev = devices[0];
 
-    const auto topology = dev->query_audio_function(UAC_TERMINAL_MICROPHONE, UAC_TERMINAL_USB_STREAMING);
+    const auto routes = dev->query_audio_routes(UAC_TERMINAL_MICROPHONE, UAC_TERMINAL_USB_STREAMING);
 
-    REQUIRE(topology.size() > 0);
+    REQUIRE(routes.size() > 0);
 
-    auto& streamIfs = dev->get_stream_interface(topology[0]);
+    auto& streamIfs = dev->get_stream_interface(routes[0]);
 
     auto devHandle = dev->open();
-    CHECK(devHandle->is_master_muted(topology[0]) == false);
+    CHECK(devHandle->is_master_muted(routes[0]) == false);
     
-    CHECK(devHandle->get_feature_master_volume(topology[0]) > 0);
+    CHECK(devHandle->get_feature_master_volume(routes[0]) > 0);
 }

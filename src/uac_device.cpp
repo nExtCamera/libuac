@@ -85,9 +85,9 @@ namespace uac {
         return std::make_shared<uac_device_handle_impl>(shared_from_this(), h_dev);
     }
 
-    std::vector<ref_uac_audio_function_topology> uac_device_impl::query_audio_function(uac_terminal_type termIn, uac_terminal_type termOut) const {
-        auto& audioFunctions = audiocontrol->audio_functions();
-        std::vector<ref_uac_audio_function_topology> elems;
+    std::vector<ref_uac_audio_route> uac_device_impl::query_audio_routes(uac_terminal_type termIn, uac_terminal_type termOut) const {
+        auto& audioFunctions = audiocontrol->audio_routes();
+        std::vector<ref_uac_audio_route> elems;
         for (auto&& aft : audioFunctions) {
             if (aft.contains_terminal(termOut) && aft.contains_terminal(termIn)) {
                 elems.emplace_back(aft);
@@ -96,16 +96,16 @@ namespace uac {
         return elems;
     }
 
-    const uac_stream_if& uac_device_impl::get_stream_interface(const uac_audio_function_topology& topology) const {
-        auto topology_impl = static_cast<const uac_audio_function_topology_impl&>(topology);
+    const uac_stream_if& uac_device_impl::get_stream_interface(const uac_audio_route& route) const {
+        auto route_impl = static_cast<const uac_audio_route_impl&>(route);
         for (auto &stream : audiocontrol->streams) {
             for (auto& alt : stream.altsettings) {
-                if (alt.general.bTerminalLink == topology_impl.entry->outTerminal->bTerminalID) {
+                if (alt.general.bTerminalLink == route_impl.entry->outTerminal->bTerminalID) {
                     return stream;
                 }
             }
         }
-        throw std::out_of_range("missing stream interface for a given topology");
+        throw std::out_of_range("missing stream interface for a given route");
     }
 
 
@@ -154,16 +154,16 @@ namespace uac {
 
         auto& altsetting = streamIfImpl->altsettings[setting];
         auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting.bAlternateSetting, altsetting.endpoint, altsetting.general);
-        streamHandle->setSamplingRate(samplingRate);
+        streamHandle->set_sampling_rate(samplingRate);
         streamHandle->start(cb_func, burst);
         return streamHandle;
     }
 
-    bool uac_device_handle_impl::is_master_muted(const uac_audio_function_topology &topology) {
-        auto actualTopology = reinterpret_cast<const uac_audio_function_topology_impl&>(topology);
+    bool uac_device_handle_impl::is_master_muted(const uac_audio_route &route) {
+        auto route_impl = static_cast<const uac_audio_route_impl&>(route);
         const int cs = MUTE_CONTROL;
         const int cn = 0;
-        const int unit = actualTopology.entry->sources[0]->unit->bUnitID;
+        const int unit = route_impl.entry->sources[0]->unit->bUnitID;
         uint8_t data = 0;
 
         int errval = libusb_control_transfer(
@@ -182,11 +182,11 @@ namespace uac {
             return data;
     }
 
-    int16_t uac_device_handle_impl::get_feature_master_volume(const uac_audio_function_topology &topology) {
-        auto actualTopology = reinterpret_cast<const uac_audio_function_topology_impl&>(topology);
+    int16_t uac_device_handle_impl::get_feature_master_volume(const uac_audio_route &route) {
+        auto route_impl = static_cast<const uac_audio_route_impl&>(route);
         const int cs = VOLUME_CONTROL;
         const int cn = 0;
-        const int unit = actualTopology.entry->sources[0]->unit->bUnitID;
+        const int unit = route_impl.entry->sources[0]->unit->bUnitID;
         int16_t data = 0;
 
         int errval = libusb_control_transfer(
@@ -217,7 +217,7 @@ namespace uac {
         return name;
     }
 
-    std::string uac_device_handle_impl::getName() const {
+    std::string uac_device_handle_impl::get_name() const {
         return getString(device->audiocontrol->iInterface);
     }
 
@@ -234,7 +234,7 @@ namespace uac {
         if (device->audiocontrol->iInterface == 0) {
             fprintf(f, "iInterface: 0\n");
         } else {
-            fprintf(f, "iInterface: %s\n", getName().c_str());
+            fprintf(f, "iInterface: %s\n", get_name().c_str());
         }
 
         fprintf(f, "Input Terminals:\n");

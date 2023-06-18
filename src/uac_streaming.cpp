@@ -84,7 +84,7 @@ namespace uac {
         return altsettings[settingIdx].endpoint.wMaxPacketSize;
     }
 
-    std::vector<uac_format> uac_stream_if_impl::getFormats() const {
+    std::vector<uac_format> uac_stream_if_impl::get_formats() const {
         std::vector<uac_format> list;
         for (auto &&item : altsettings) {
             list.push_back(uac_format {
@@ -193,7 +193,7 @@ namespace uac {
         transfers.clear();
     }
 
-    void uac_stream_handle_impl::setSamplingRate(const uint32_t samplingRate) {
+    void uac_stream_handle_impl::set_sampling_rate(const uint32_t samplingRate) {
         if (samplingRate == 0) {
             uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
             target_sampling_rate = format->tSamFreq[0];
@@ -246,7 +246,7 @@ namespace uac {
         return samplingFreq;
     }
 
-    uint8_t uac_format::getNumChannels() const {
+    uint8_t uac_format::get_num_channels() const {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
@@ -257,7 +257,7 @@ namespace uac {
         }
     }
 
-    uint8_t uac_format::getSubframeSize() const {
+    uint8_t uac_format::get_subframe_size() const {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
@@ -268,7 +268,7 @@ namespace uac {
         }
     }
 
-    uint8_t uac_format::getBitResolution() const {
+    uint8_t uac_format::get_bit_resolution() const {
         uac_format_type_1 *fmt;
         switch (pFormatDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:

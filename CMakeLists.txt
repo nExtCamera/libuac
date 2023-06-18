@@ -17,7 +17,6 @@ find_package(Threads REQUIRED)
 
 # configure C++-17 requirement
 set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
@@ -50,6 +49,9 @@ target_link_libraries(uac PRIVATE
         LibUSB::LibUSB
         Threads::Threads)
 
+# reset visibility settings for testing
+unset(CMAKE_CXX_VISIBILITY_PRESET)
+unset(CMAKE_VISIBILITY_INLINES_HIDDEN)
 include(Dart)
 add_subdirectory(tests)
 enable_testing()

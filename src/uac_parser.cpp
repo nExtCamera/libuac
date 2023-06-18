@@ -14,7 +14,6 @@
 
 #include "uac_parser.h"
 #include "logging.h"
-#include "usb_audio.h"
 #include "uac_context.h"
 #include "uac_exceptions.h"
 #include <list>
@@ -158,12 +157,12 @@ namespace uac {
 
     void uac_audiocontrol::configure_audio_function() {
         for (auto &&terminal : outputTerminals) {
-            auto topology = build_audio_topology(terminal);
-            audioFunctionTopology.push_back(topology);
+            auto route = build_audio_topology(terminal);
+            audioFunctionTopology.push_back(route);
         }
     }
 
-    uac_audio_function_topology_impl uac_audiocontrol::build_audio_topology(std::shared_ptr<uac_output_terminal> outputTerminal) {
+    uac_audio_route_impl uac_audiocontrol::build_audio_topology(std::shared_ptr<uac_output_terminal> outputTerminal) {
         std::stringstream logStream;
         auto outputEntity = std::make_shared<uac_topology_entity>(outputTerminal);
 
@@ -193,7 +192,7 @@ namespace uac {
                 }
             }
         }
-        LOG_DEBUG("audio topology chain : %s", logStream.str().c_str());
+        LOG_DEBUG("audio route chain : %s", logStream.str().c_str());
         return {outputEntity};
     }
 
@@ -429,11 +428,11 @@ namespace uac {
         }
     }
 
-    uac_audio_function_topology_impl::uac_audio_function_topology_impl(std::shared_ptr<uac_topology_entity> entry) : entry(entry) {
-        LOG_DEBUG("construct uac_audio_function_topology_impl %p", this);
+    uac_audio_route_impl::uac_audio_route_impl(std::shared_ptr<uac_topology_entity> entry) : entry(entry) {
+        LOG_DEBUG("construct uac_audio_route_impl %p", this);
     }
     
-    uac_topology_entity* uac_audio_function_topology_impl::findInputTerminalByType(uac_topology_entity *entity, uac_terminal_type terminalType) {
+    uac_topology_entity* uac_audio_route_impl::findInputTerminalByType(uac_topology_entity *entity, uac_terminal_type terminalType) {
         if (entity->inTerminal != nullptr && matches_terminals(entity->inTerminal->wTerminalType, terminalType)) {
             return entity;
         } else {
@@ -447,7 +446,7 @@ namespace uac {
         }
     }
 
-    bool uac_audio_function_topology_impl::contains_terminal(uac_terminal_type terminalType) const {
+    bool uac_audio_route_impl::contains_terminal(uac_terminal_type terminalType) const {
         if (matches_terminals(entry->outTerminal->wTerminalType, terminalType)) {
             return true;
         } else {
