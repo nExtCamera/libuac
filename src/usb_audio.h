@@ -22,7 +22,7 @@ namespace uac {
     /**
      * Table A.2 Audio Interface Subclass Codes
      */
-    enum class uac_subclass_code : uint8_t {
+    enum uac_subclass_code : uint8_t {
         UAC_SUBCLASS_UNDEFINED      = 0x00,
         UAC_SUBCLASS_AUDIOCONTROL   = 0x01,
         UAC_SUBCLASS_AUDIOSTREAMING = 0x02,
@@ -52,7 +52,7 @@ namespace uac {
     /**
      * Table A.5 Audio Class-Specific AC Interface Descriptor Subtypes
      */
-    enum uac_ac_descriptor_subtype {
+    enum uac_ac_descriptor_subtype : uint8_t {
         UAC_AC_DESCRIPTOR_UNDEFINED = 0x00,
         UAC_AC_HEADER = 0x01,
         UAC_AC_INPUT_TERMINAL = 0x02,
@@ -75,7 +75,7 @@ namespace uac {
     };
 
     /**
-     * Frmts Table A.4 Format Type Codes
+     * (Frmts) Table A.4 Format Type Codes
      */
     enum uac_format_type {
         UAC_FORMAT_TYPE_UNDEFINED = 0x00,
@@ -85,7 +85,7 @@ namespace uac {
     };
 
     /**
-     * Frmts Table A.1-3 Audio Data Format Type I-III Codes
+     * (Frmts) Table A.1-3 Audio Data Format Type I-III Codes
      */
     enum uac_audio_data_format_type : uint16_t {
         UAC_FORMAT_DATA_TYPE_I_UNDEFINED = 0x0000,
@@ -108,6 +108,9 @@ namespace uac {
         UAC_FORMAT_DATA_IEC1937_MPEG2_L2_LS = 0x2006
     };
 
+    /**
+     * Table 4-2: Class-Specific AC Interface Header Descriptor
+     */
     struct uac_ac_header {
         uint16_t bcdADC;
         uint16_t wTotalLength;
@@ -115,11 +118,9 @@ namespace uac {
         //uint8_t  baInterfaceNr[];
     };
 
-    struct uac_unit {
-        uint8_t unitType;
-        uint8_t bUnitID;
-    };
-
+    /**
+     * Table 4-3: Input Terminal Descriptor
+     */
     struct uac_input_terminal {
         uint8_t  bTerminalID;
         uint16_t wTerminalType;
@@ -130,6 +131,9 @@ namespace uac {
         uint8_t  iTerminal;
     };
 
+    /**
+     * Table 4-4: Output Terminal Descriptor
+     */
     struct uac_output_terminal {
         uint8_t  bTerminalID;
         uint16_t wTerminalType;
@@ -138,16 +142,39 @@ namespace uac {
         uint8_t  iTerminal;
     };
 
+    /**
+     * Common fields for each unit descriptor
+     *
+     * See for example: Table 4-5: Mixer Unit Descriptor
+     */
+    struct uac_unit {
+        uac_ac_descriptor_subtype unitType; // bDescriptorSubtype
+        uint8_t bUnitID; // bUnitID
+    };
+
+    /**
+     * Table 4-5: Mixer Unit Descriptor
+     */
     struct uac_mixer_unit : uac_unit {
         /* data */
     };
 
+    /**
+     * Table 4-7: Feature Unit Descriptor
+     */
     struct uac_feature_unit : uac_unit {
         uint8_t bSourceId;
         uint8_t bControlSize;
         uint8_t bmaControls[];
     };
 
+    /*=============================
+     *  Audio Format descriptors
+     *=============================*/
+
+    /**
+     * A common format type descriptor data
+     */
     struct uac_format_type_desc {
         uac_format_type bFormatType;
     };
@@ -155,12 +182,14 @@ namespace uac {
     /*=============================
      *  Audio Streaming Descriptors
      *=============================*/
-    
+
+    /**
+     * Table 4-19: Class-Specific AS Interface Descriptor
+     */
     struct uac_as_general {
         uint8_t  bTerminalLink;
         uint8_t  bDelay;
         uac_audio_data_format_type wFormatTag;
-        std::shared_ptr<uac_format_type_desc> format;
     };
 
     /**
@@ -179,6 +208,11 @@ namespace uac {
         uint16_t wLockDelay;
     };
 
+    /**
+     * (Frmts) Table 2-1: Type I Format Type Descriptor
+     *
+     * Identical structure is used for Type III Format Type Descriptor
+     */
     struct uac_format_type_1 : uac_format_type_desc {
         uint8_t bNrChannels;
         uint8_t bSubframeSize;
@@ -193,17 +227,48 @@ namespace uac {
         uint32_t tSamFreq[];
     };
 
-    struct uac_as_format_specific {
+    /**
+     * (Frmts) Table 2-4: Type II Format Type Descriptor
+     */
+    struct uac_format_type_2 : uac_format_type_desc {
+        uint16_t wMaxBitRate;
+        uint16_t wSamplesPerFrame;
+        uint8_t bSamFreqType;
+
+        // continuous sampling freq
+        uint32_t tLowerSamFreq;
+        uint32_t tUpperSamFreq;
+
+        // discrete sampling freq
+        uint32_t tSamFreq[];
     };
 
-    enum uac_request_type {
+    /**
+     * Table 2-7: MPEG Format-Specific Descriptor
+     */
+    struct uac_as_format_mpeg {
+    };
+
+    /**
+     * Table 2-16: AC-3 Format-Specific Descriptor
+     */
+    struct uac_as_format_ac3 {
+    };
+
+    /*
+     * USB standard request type
+     */
+    enum usb_request_type {
         REQ_TYPE_IF_SET = 0x21,
         REQ_TYPE_IF_GET = 0xA1,
         REQ_TYPE_EP_SET = 0x22,
         REQ_TYPE_EP_GET = 0xA2
     };
 
-    enum uac_request_get {
+    /*
+     * USB standard request get type
+     */
+    enum usb_request_get {
         REQ_SET_CUR = 0x01,
         REQ_SET_MIN = 0x02,
         REQ_SET_MAX = 0x03,
@@ -236,6 +301,5 @@ namespace uac {
     enum ep_control_selectors {
         SAMPLING_FREQ_CONTROL = 0x01,
         PITCH_CONTROL = 0x02
-
     };
 }

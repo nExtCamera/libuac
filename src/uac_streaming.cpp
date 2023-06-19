@@ -89,14 +89,14 @@ namespace uac {
         for (auto &&item : altsettings) {
             list.push_back(uac_format {
                 .wFormatTag = item.general.wFormatTag,
-                .pFormatDesc = item.general.format
+                .pFormatDesc = item.formatTypeDesc
             });
         }
         return list;
     }
 
-    uac_stream_handle_impl::uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, uint8_t altsetting, const uac_endpoint_desc &endpointDesc, const uac::uac_as_general& settings) :
-        dev_handle(dev_handle), bInterfaceNr(interfaceNr), current_altsetting(altsetting), endpoint_desc(endpointDesc), settings(settings) {
+    uac_stream_handle_impl::uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting) :
+        dev_handle(dev_handle), bInterfaceNr(interfaceNr), altsetting(altsetting) {
 
         int errval;
         LOG_DEBUG("claim AS intf(%d)", bInterfaceNr);
@@ -104,12 +104,14 @@ namespace uac {
         if (errval != LIBUSB_SUCCESS) {
             throw usb_exception_impl("libusb_claim_interface()", (libusb_error)errval);
         }
-        uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
+        uac_format_type_1 *format = (uac_format_type_1*) altsetting.formatTypeDesc.get();
         target_sampling_rate = format->tSamFreq[0];
         stride = format->bSubframeSize * format->bNrChannels;
 
         if (dev_handle->device->hasQuirkSwapChannels()) {
             offset_stream = format->bSubframeSize;
+        } else {
+            offset_stream = 0;
         }
     }
 
@@ -125,15 +127,15 @@ namespace uac {
     void uac_stream_handle_impl::start(stream_cb_func stream_cb_func, int burst) {
         this->cb_func = std::move(stream_cb_func);
         const int iso_packets = burst;
-        const int total_transfer_size = iso_packets * endpoint_desc.wMaxPacketSize;
-        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", endpoint_desc.wMaxPacketSize, total_transfer_size);
-        auto bmAttributes = endpoint_desc.iso_desc.bmAttributes;
+        const int total_transfer_size = iso_packets * altsetting.endpoint.wMaxPacketSize;
+        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", altsetting.endpoint.wMaxPacketSize, total_transfer_size);
+        auto bmAttributes = altsetting.endpoint.iso_desc.bmAttributes;
         if (bmAttributes & SAMPLING_FREQ_CONTROL) { // the endpoints supports sampling frequency, so probe it
             set_sampling_freq(target_sampling_rate);
         }
 
-        LOG_DEBUG("set_altsetting %d at intf(%d) ep 0x%x", current_altsetting, bInterfaceNr, endpoint_desc.bEndpointAddress);
-        int errval = libusb_set_interface_alt_setting(dev_handle->usb_handle, bInterfaceNr, current_altsetting);
+        LOG_DEBUG("set_altsetting %d at intf(%d) ep 0x%x", altsetting.bAlternateSetting, bInterfaceNr, altsetting.endpoint.bEndpointAddress);
+        int errval = libusb_set_interface_alt_setting(dev_handle->usb_handle, bInterfaceNr, altsetting.bAlternateSetting);
         if (errval != LIBUSB_SUCCESS) {
             throw usb_exception_impl("libusb_set_interface_alt_setting()", (libusb_error)errval);
         }
@@ -144,8 +146,8 @@ namespace uac {
             uint8_t *buffer = new uint8_t[total_transfer_size];
             memset(buffer, 0, total_transfer_size);
 
-            libusb_fill_iso_transfer(transfer, dev_handle->usb_handle, endpoint_desc.bEndpointAddress, buffer, total_transfer_size, iso_packets, cb, this, 1000);
-            libusb_set_iso_packet_lengths(transfer, endpoint_desc.wMaxPacketSize);
+            libusb_fill_iso_transfer(transfer, dev_handle->usb_handle, altsetting.endpoint.bEndpointAddress, buffer, total_transfer_size, iso_packets, cb, this, 1000);
+            libusb_set_iso_packet_lengths(transfer, altsetting.endpoint.wMaxPacketSize);
             errval = libusb_submit_transfer(transfer);
             LOG_DEBUG("submit transfer %d... %s", i, libusb_error_name(errval));
             if (errval == LIBUSB_SUCCESS) {
@@ -168,7 +170,7 @@ namespace uac {
 
     void uac_stream_handle_impl::stop() {
         if (!active) return;
-        LOG_DEBUG("Stop stream intf(%d), altsetting=%d", bInterfaceNr, current_altsetting);
+        LOG_DEBUG("Stop stream intf(%d), altsetting=%d", bInterfaceNr, altsetting.bAlternateSetting);
         for (libusb_transfer* transfer : transfers) {
             libusb_cancel_transfer(transfer);
         }
@@ -195,7 +197,7 @@ namespace uac {
 
     void uac_stream_handle_impl::set_sampling_rate(const uint32_t samplingRate) {
         if (samplingRate == 0) {
-            uac_format_type_1 *format = (uac_format_type_1*) settings.format.get();
+            uac_format_type_1 *format = (uac_format_type_1*) altsetting.formatTypeDesc.get();
             target_sampling_rate = format->tSamFreq[0];
         } else {
             target_sampling_rate = samplingRate;
@@ -204,7 +206,7 @@ namespace uac {
 
     void uac_stream_handle_impl::set_sampling_freq(uint32_t sampling) {
         const int cs = SAMPLING_FREQ_CONTROL;
-        const int ep = endpoint_desc.bEndpointAddress;
+        const int ep = altsetting.endpoint.bEndpointAddress;
         uint8_t data[3] = H_DWORD24(sampling);
 
         LOG_DEBUG("set_sampling_freq (%d)", sampling);
@@ -224,10 +226,9 @@ namespace uac {
 
     uint32_t uac_stream_handle_impl::get_sampling_freq() {
         const int cs = SAMPLING_FREQ_CONTROL;
-        const int ep = endpoint_desc.bEndpointAddress;
+        const int ep = altsetting.endpoint.bEndpointAddress;
         uint8_t data[3];
 
-        
         int errval = libusb_control_transfer(
             dev_handle->usb_handle,
             REQ_TYPE_EP_GET,

@@ -92,6 +92,7 @@ namespace uac {
         uint8_t bAlternateSetting;
         uac_as_general general;
         uac_endpoint_desc endpoint;
+        std::shared_ptr<uac_format_type_desc> formatTypeDesc;
 
         bool supportsSampleRate(int32_t sampleRate) const;
     };

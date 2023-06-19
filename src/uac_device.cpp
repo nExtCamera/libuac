@@ -45,7 +45,7 @@ namespace uac {
         if (desc.idVendor == 0x534d && (desc.idProduct == 0x2109 || desc.idProduct == 0x0021)) {
             LOG_DEBUG("Apply device quirks!!");
             auto& setting = audiocontrol->streams.back();
-            auto format = (uac_format_type_1*)(setting.altsettings[0].general.format.get());
+            auto format = (uac_format_type_1*)(setting.altsettings[0].formatTypeDesc.get());
             format->bNrChannels = 2;
             format->tSamFreq[0] = 48000;
             quirk_swap_channels = true;
@@ -152,8 +152,8 @@ namespace uac {
             throw usb_exception_impl("libusb_claim_interface()", (libusb_error)errval);
         }
 
-        auto& altsetting = streamIfImpl->altsettings[setting];
-        auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting.bAlternateSetting, altsetting.endpoint, altsetting.general);
+        const auto& altsetting = streamIfImpl->altsettings[setting];
+        auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting);
         streamHandle->set_sampling_rate(samplingRate);
         streamHandle->start(cb_func, burst);
         return streamHandle;
@@ -266,11 +266,11 @@ namespace uac {
             fprintf(f, "- bInterfaceNr: %d\n", as.bInterfaceNr);
             for (int i = 0; i < as.altsettings.size(); ++i) {
                 auto && altsetting = as.altsettings[i];
-                fprintf(f, "\taltsetting: %d\n", i+1);
+                fprintf(f, "\tbAlternateSetting: %d\n", altsetting.bAlternateSetting);
                 fprintf(f, "\t  bTerminalLink: %d\n", altsetting.general.bTerminalLink);
                 fprintf(f, "\t  wFormatTag: 0x%04x\n", altsetting.general.wFormatTag);
                 fprintf(f, "\t  bDelay: %d\n", altsetting.general.bDelay);
-                dump_format(f, altsetting.general.format.get());
+                dump_format(f, altsetting.formatTypeDesc.get());
                 fprintf(f, "\t  wMaxPacketSize: %d\n", altsetting.endpoint.wMaxPacketSize);
             }
         }
@@ -281,6 +281,7 @@ namespace uac {
         uac_format_type_1 *format1;
         switch (format->bFormatType) {
         case UAC_FORMAT_TYPE_I:
+        case UAC_FORMAT_TYPE_III:
             format1 = (uac_format_type_1*)format;
             fprintf(f, "\t  bNrChannels: %d\n", format1->bNrChannels);
             fprintf(f, "\t  bSubframeSize: %d\n", format1->bSubframeSize);

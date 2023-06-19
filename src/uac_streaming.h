@@ -24,7 +24,7 @@ namespace uac {
 
     class uac_stream_handle_impl : public uac_stream_handle {
     public:
-        uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, uint8_t altsetting, const uac_endpoint_desc &endpointDesc, const uac::uac_as_general& settings);
+        uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting);
         ~uac_stream_handle_impl();
 
         void start(stream_cb_func stream_cb_func, int burst);
@@ -49,10 +49,9 @@ namespace uac {
     private:
         std::shared_ptr<uac_device_handle_impl> dev_handle;
 
-        const uac::uac_as_general& settings;
+        const uac_altsetting& altsetting;
         uint8_t bInterfaceNr;
-        uint8_t current_altsetting;
-        uac_endpoint_desc endpoint_desc;
+
         uint32_t target_sampling_rate;
 
         bool active = false;

@@ -56,10 +56,10 @@ namespace uac {
             if (intf_desc->bInterfaceClass == LIBUSB_CLASS_AUDIO) {
                 LOG_DEBUG("found AUDIO Class interface, subclass=0x%x, protocol=%d", intf_desc->bInterfaceSubClass, intf_desc->bInterfaceProtocol);
                 switch (intf_desc->bInterfaceSubClass) {
-                case (uint8_t)uac_subclass_code::UAC_SUBCLASS_AUDIOCONTROL:
+                case uac_subclass_code::UAC_SUBCLASS_AUDIOCONTROL:
                     audiocontrol = parse_audiocontrol(intf_desc);
                     break;
-                case (uint8_t)uac_subclass_code::UAC_SUBCLASS_AUDIOSTREAMING:
+                case uac_subclass_code::UAC_SUBCLASS_AUDIOSTREAMING:
                     if (!audiocontrol) {
                         // we expect the AudioControl interface before any AudioStreaming interfaces
                         throw invalid_device_exception();
@@ -285,14 +285,14 @@ namespace uac {
 
     std::shared_ptr<uac_mixer_unit> parse_mixer_unit(const uint8_t *data, int size) {
         auto unit = std::make_shared<uac_mixer_unit>();
-        unit->unitType = data[2];
+        unit->unitType = (uac_ac_descriptor_subtype) data[2];
         unit->bUnitID = data[3];
         return unit;
     }
 
     std::shared_ptr<uac_feature_unit> parse_feature_unit(const uint8_t *data, int size) {
         auto unit = std::make_unique<uac_feature_unit>();
-        unit->unitType = data[2];
+        unit->unitType = (uac_ac_descriptor_subtype) data[2];
         unit->bUnitID = data[3];
         unit->bSourceId = data[4];
         unit->bControlSize = data[5];
@@ -300,7 +300,7 @@ namespace uac {
         return unit;
     }
 
-    uac_format_type_1* parse_as_format_type_1(const uint8_t *data, int size) {
+    uac_format_type_1* parse_as_format_type_1_3(const uint8_t *data, int size) {
         uint8_t bSamFreqType = data[7];
         uac_format_type_1 *desc = (uac_format_type_1*) malloc(sizeof(uac_format_type_1) + sizeof(uint32_t [bSamFreqType]));
         desc->bFormatType = (uac_format_type) data[3];
@@ -329,19 +329,21 @@ namespace uac {
         generalDesc.wFormatTag = (uac_audio_data_format_type) TO_WORD(data+5);
     }
 
-    void parse_as_format_type(uac_as_general &generalDesc, const uint8_t *data, int size) {
+    std::shared_ptr<uac_format_type_desc> parse_as_format_type(const uint8_t *data, int size) {
+        std::shared_ptr<uac_format_type_desc> format;
         uint8_t bFormatType = data[3];
         switch (bFormatType) {
         case UAC_FORMAT_TYPE_I:
-            generalDesc.format = std::shared_ptr<uac_format_type_desc>(parse_as_format_type_1(data, size));
+        case UAC_FORMAT_TYPE_III:
+            format = std::shared_ptr<uac_format_type_desc>(parse_as_format_type_1_3(data, size));
             break;
         
         default:
-            generalDesc.format = std::shared_ptr<uac_format_type_desc>((uac_format_type_desc*)malloc(sizeof(uac_format_type_desc)));
-            generalDesc.format->bFormatType = static_cast<uac_format_type>(bFormatType);
+            format = std::shared_ptr<uac_format_type_desc>((uac_format_type_desc*)malloc(sizeof(uac_format_type_desc)));
+            format->bFormatType = static_cast<uac_format_type>(bFormatType);
             break;
         }
-
+        return format;
     }
 
     void parse_iso_ep(iso_endpoint_desc& desc, const uint8_t *data, int size) {
@@ -382,7 +384,7 @@ namespace uac {
                     break;
                 case UAC_AS_FORMAT_TYPE:
                     LOG_DEBUG("got AS_FORMAT_TYPE descriptor");
-                    parse_as_format_type(altsetting.general, data, descSize);
+                    altsetting.formatTypeDesc = parse_as_format_type(data, descSize);
                     hasFormatDescriptor = true;
                     break;
                 case UAC_AS_FORMAT_SPECIFIC:
@@ -455,7 +457,7 @@ namespace uac {
     }
 
     bool uac_altsetting::supportsSampleRate(int32_t sampleRate) const {
-        auto format = general.format;
+        auto& format = formatTypeDesc;
         bool result = false;
         uac_format_type_1 *format1;
         switch (format->bFormatType) {
