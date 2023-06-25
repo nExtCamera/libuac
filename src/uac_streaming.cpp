@@ -15,6 +15,7 @@
 #include "uac_streaming.h"
 
 #include <utility>
+#include <set>
 #include "uac_context.h"
 #include "logging.h"
 #include "uac_exceptions.h"
@@ -71,32 +72,102 @@ namespace uac {
         }
     }
 
-    int uac_stream_if_impl::find_stream_setting(int32_t sampleRate) const {
-        int idx = 0;
-        for (auto&& setting : altsettings) {
-            if (setting.supportsSampleRate(sampleRate)) return idx;
-            else ++idx;
-        }
-        return -1;
-    }
-
-    int uac_stream_if_impl::get_bytes_per_transfer(uint8_t settingIdx) const {
-        return altsettings[settingIdx].endpoint.wMaxPacketSize;
-    }
-
-    std::vector<uac_format> uac_stream_if_impl::get_formats() const {
-        std::vector<uac_format> list;
+    std::vector<uac_audio_data_format_type> uac_stream_if_impl::get_audio_formats() const {
+        std::set<uac_audio_data_format_type> formats;
         for (auto &&item : altsettings) {
-            list.push_back(uac_format {
-                .wFormatTag = item.general.wFormatTag,
-                .pFormatDesc = item.formatTypeDesc
-            });
+            formats.insert(static_cast<uac_audio_data_format_type>(item.general.wFormatTag));
         }
-        return list;
+        return {formats.begin(), formats.end()};
+    }
+
+    std::vector<uint8_t> uac_stream_if_impl::get_channel_counts(uac_audio_data_format_type fmt) const {
+        std::set<uint8_t> channels;
+        for (auto &&item : altsettings) {
+            if (item.general.wFormatTag != fmt) continue;
+            const uac_format_type_1* formatType1;
+            switch (item.formatTypeDesc->bFormatType) {
+                case UAC_FORMAT_TYPE_I:
+                case UAC_FORMAT_TYPE_III:
+                    formatType1 = reinterpret_cast<const uac_format_type_1*>(item.formatTypeDesc.get());
+                    channels.insert(formatType1->bNrChannels);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return {channels.begin(), channels.end()};
+    }
+
+    std::vector<uint8_t> uac_stream_if_impl::get_bit_resolutions(uac_audio_data_format_type fmt) const {
+        std::set<uint8_t> bitres;
+        for (auto &&item : altsettings) {
+            if (item.general.wFormatTag != fmt) continue;
+            const uac_format_type_1* formatType1;
+            switch (item.formatTypeDesc->bFormatType) {
+                case UAC_FORMAT_TYPE_I:
+                case UAC_FORMAT_TYPE_III:
+                    formatType1 = reinterpret_cast<const uac_format_type_1*>(item.formatTypeDesc.get());
+                    bitres.insert(formatType1->bBitResolution);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return {bitres.begin(), bitres.end()};
+    }
+
+    std::vector<uint32_t> uac_stream_if_impl::get_sample_rates(uac_audio_data_format_type fmt) const {
+        std::set<uint32_t> samplingRates;
+        for (auto &&item : altsettings) {
+            if (item.general.wFormatTag != fmt) continue;
+            const uac_format_type_1* formatType1;
+            switch (item.formatTypeDesc->bFormatType) {
+                case UAC_FORMAT_TYPE_I:
+                case UAC_FORMAT_TYPE_III:
+                    formatType1 = reinterpret_cast<const uac_format_type_1*>(item.formatTypeDesc.get());
+                    if (formatType1->bSamFreqType > 0) {
+                        for (int i = 0; i < formatType1->bSamFreqType; ++i) {
+                            samplingRates.insert(formatType1->tSamFreq[i]);
+                        }
+                    } else {
+                        samplingRates.insert(formatType1->tLowerSamFreq);
+                        samplingRates.insert(formatType1->tUpperSamFreq);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        return { samplingRates.begin(), samplingRates.end() };
+    }
+
+    std::unique_ptr<const uac_audio_config_uncompressed> uac_stream_if_impl::query_config_uncompressed(
+            uac_audio_data_format_type audioDataFormatType,
+            uint8_t numChannels,
+            uint32_t sampleRate) const {
+        for (auto&& setting : altsettings) {
+            auto format1 = setting.getFormatType1();
+            if (format1 == nullptr) continue;
+            if ((audioDataFormatType == UAC_FORMAT_DATA_ANY || setting.general.wFormatTag == audioDataFormatType)
+                && setting.supportsChannelsCount(numChannels)
+                && setting.supportsSampleRate(sampleRate)) {
+                return std::make_unique<uac_audio_config_uncompressed>(
+                        uac_audio_config_uncompressed{
+                            audioDataFormatType,
+                            setting.bAlternateSetting,
+                            format1->bSubframeSize,
+                            format1->bBitResolution,
+                            format1->bNrChannels,
+                            setting.endpoint.wMaxPacketSize,
+                            sampleRate
+                            });
+            }
+        }
+        return {nullptr};
     }
 
     uac_stream_handle_impl::uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting) :
-        dev_handle(dev_handle), bInterfaceNr(interfaceNr), altsetting(altsetting) {
+        dev_handle(dev_handle), bInterfaceNr(interfaceNr), altsetting(altsetting), mActiveTransfers(0) {
 
         int errval;
         LOG_DEBUG("claim AS intf(%d)", bInterfaceNr);
@@ -247,36 +318,4 @@ namespace uac {
         return samplingFreq;
     }
 
-    uint8_t uac_format::get_num_channels() const {
-        uac_format_type_1 *fmt;
-        switch (pFormatDesc->bFormatType) {
-            case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
-                return fmt->bNrChannels;
-            default:
-                return 0;
-        }
-    }
-
-    uint8_t uac_format::get_subframe_size() const {
-        uac_format_type_1 *fmt;
-        switch (pFormatDesc->bFormatType) {
-            case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
-                return fmt->bSubframeSize;
-            default:
-                return 0;
-        }
-    }
-
-    uint8_t uac_format::get_bit_resolution() const {
-        uac_format_type_1 *fmt;
-        switch (pFormatDesc->bFormatType) {
-            case UAC_FORMAT_TYPE_I:
-                fmt = reinterpret_cast<uac_format_type_1*>(pFormatDesc.get());
-                return fmt->bBitResolution;
-            default:
-                return 0;
-        }
-    }
 }

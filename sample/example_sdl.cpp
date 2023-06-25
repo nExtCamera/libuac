@@ -28,6 +28,9 @@ std::shared_ptr<uac::uac_stream_handle> streamHandle;
 const int TEX_WIDTH = 640;
 const int TEX_HEIGHT = 480;
 
+const int NUM_CHANNELS = 1;
+const int SAMPLE_RATE = 48000;
+
 static void setupSDL() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
@@ -46,9 +49,9 @@ static void setupSDL() {
 
 
     SDL_AudioSpec audioSpec = {0,};
-    audioSpec.freq = 48000,
+    audioSpec.freq = SAMPLE_RATE,
     audioSpec.format = AUDIO_S16;
-    audioSpec.channels = 2;
+    audioSpec.channels = NUM_CHANNELS;
     audioSpec.samples = 512;
     audioSpec.callback = nullptr;
     audioSpec.userdata = nullptr;
@@ -119,21 +122,39 @@ int main() {
 
         auto& route = routes[0];
 
-        auto& streamIfs = dev->get_stream_interface(route);
-        // if (streamIfs.empty()) {
-        //     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "No streaming interfaces for selected Audio Function!");
-        //     goto cleanup;
-        // }
-        
+        auto& streamIf = dev->get_stream_interface(route);
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Available audio formats:");
+        for (auto &&item : streamIf.get_audio_formats()) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, " > %d", item);
+
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "  Available channel counts:");
+            for (auto &&item : streamIf.get_channel_counts(item)) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "   > %d", item);
+            }
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "  Available bit resolutions:");
+            for (auto &&item : streamIf.get_bit_resolutions(item)) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "   > %d", item);
+            }
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "  Available sample rates:");
+            for (auto &&item : streamIf.get_sample_rates(item)) {
+                SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "   > %d", item);
+            }
+        }
+
+        auto audio_config = streamIf.query_config_uncompressed(uac::UAC_FORMAT_DATA_PCM, NUM_CHANNELS, SAMPLE_RATE);
+        if (!audio_config) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Unable to select 48kHz 1-CH audio config");
+            goto cleanup;
+        }
+
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Open device...");
         auto devHandle = dev->open();
 
         //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Is Master Muted: %d",  devHandle->is_master_muted(route));
         //SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Master volume: %d",  devHandle->get_feature_master_volume(route));
-        int setting = streamIfs.find_stream_setting(48000);
 
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Start streaming...");
-        streamHandle = devHandle->start_streaming(streamIfs, setting, &cb);
+        streamHandle = devHandle->start_streaming(streamIf, *audio_config, &cb);
 
     } catch(const std::exception &e) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "error: %s", e.what());

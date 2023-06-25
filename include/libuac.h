@@ -1,17 +1,16 @@
 // Copyright 2023 Jakub Księżniak
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 
 #pragma once
 
@@ -24,22 +23,22 @@ namespace uac {
 
     /**
      * @brief The exception class for usb errors
-     * 
+     *
      * This exception holds an error code from libusb calls.
      */
     class usb_exception : public std::exception {
     public:
         /**
          * @brief A detailed message
-         * 
-         * @return const char* 
+         *
+         * @return const char*
          */
         virtual const char* what() const noexcept override = 0;
 
         /**
          * @brief The libusb error code
-         * 
-         * @return libusb_error 
+         *
+         * @return libusb_error
          */
         virtual libusb_error error_code() const = 0;
     };
@@ -69,6 +68,13 @@ namespace uac {
         UAC_TERMINAL_COMM_SPEAKER = 0x306,
         UAC_TERMINAL_LFR_SPEAKER = 0x307,
 
+        UAC_TERMINAL_BIDIR_UNDEFINED = 0x400,
+        UAC_TERMINAL_HANDSET = 0x401,
+        UAC_TERMINAL_HEADSET = 0x402,
+        UAC_TERMINAL_SPEAKERPHONE = 0x403,
+        UAC_TERMINAL_SPEAKERPHONE_ECHO_SUPPRESSING = 0x404,
+        UAC_TERMINAL_SPEAKERPHONE_ECHO_CANCELLING = 0x405,
+
         UAC_TERMINAL_EXTERNAL_UNDEFINED = 0x600,
         UAC_TERMINAL_EXTERNAL_ANALOG = 0x601,
         UAC_TERMINAL_EXTERNAL_DIGITAL = 0x602,
@@ -76,12 +82,38 @@ namespace uac {
         UAC_TERMINAL_ANY = 0xF00,
     };
 
+    /**
+     * (Frmts) Table A.1-3 Audio Data Format Type I-III Codes
+     */
+    enum uac_audio_data_format_type : uint16_t {
+        UAC_FORMAT_DATA_TYPE_I_UNDEFINED = 0x0000,
+        UAC_FORMAT_DATA_PCM = 0x0001,
+        UAC_FORMAT_DATA_PCM8 = 0x0002,
+        UAC_FORMAT_DATA_IEEE_FLOAT = 0x0003,
+        UAC_FORMAT_DATA_ALAW = 0x0004,
+        UAC_FORMAT_DATA_MULAW = 0x0005,
+
+        UAC_FORMAT_DATA_TYPE_II_UNDEFINED = 0x1000,
+        UAC_FORMAT_DATA_MPEG = 0x1001,
+        UAC_FORMAT_DATA_AC3 = 0x1002,
+
+        UAC_FORMAT_DATA_TYPE_III_UNDEFINED = 0x2000,
+        UAC_FORMAT_DATA_IEC1937_AC3 = 0x2001,
+        UAC_FORMAT_DATA_IEC1937_MPEG1 = 0x2002,
+        UAC_FORMAT_DATA_IEC1937_MPEG2 = 0x2003,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_EXT = 0x2004,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_L1_LS = 0x2005,
+        UAC_FORMAT_DATA_IEC1937_MPEG2_L2_LS = 0x2006,
+
+        UAC_FORMAT_DATA_ANY = 0xFFFF
+    };
+
     class uac_device;
     class uac_device_handle;
 
     /**
      * @brief The libuac context
-     * 
+     *
      * All events and resources are managed under this context.
      * Usually, a single context should be enough for most use cases.
      */
@@ -89,7 +121,7 @@ namespace uac {
     public:
         virtual ~uac_context() = default;
         virtual std::vector<std::shared_ptr<uac_device>> query_all_devices() = 0;
-        
+
         virtual std::shared_ptr<uac_device_handle> wrap(int fd) = 0;
 
         static std::shared_ptr<uac_context> create();
@@ -105,6 +137,7 @@ namespace uac {
      */
     class uac_device {
     public:
+        virtual ~uac_device() = default;
         virtual uint16_t get_vid() const = 0;
         virtual uint16_t get_pid() const = 0;
 
@@ -115,26 +148,34 @@ namespace uac {
         virtual const uac_stream_if& get_stream_interface(const uac_audio_route& route) const = 0;
     };
 
-    struct uac_format_type_desc;
     /**
-     * @brief Audio format.
-     * 
+     * @brief Configuration for uncompressed audio streaming
+     *
      */
-    struct uac_format {
-        uint16_t wFormatTag;
-        std::shared_ptr<uac_format_type_desc> pFormatDesc;
+    struct uac_audio_config_uncompressed {
+        const uac_audio_data_format_type audioDataFormat;
+        uint8_t bAlternateSetting;
+        const uint8_t bSubframeSize;
+        const uint8_t bBitResolution;
+        const uint8_t bChannelCount;
+        const uint16_t wMaxPacketSize;
+        uint32_t tSampleRate;
+    };
 
-        uint8_t get_num_channels() const;
-        uint8_t get_subframe_size() const;
-        uint8_t get_bit_resolution() const;
-
+    struct uac_audio_config_compressed {
     };
 
     class uac_stream_if {
     public:
-        virtual int find_stream_setting(int32_t sampleRate) const = 0;
-        virtual int get_bytes_per_transfer(uint8_t settingIdx) const = 0;
-        virtual std::vector<uac_format> get_formats() const = 0;
+        virtual ~uac_stream_if() = default;
+        virtual std::vector<uac_audio_data_format_type> get_audio_formats() const = 0;
+        virtual std::vector<uint8_t> get_channel_counts(uac_audio_data_format_type fmt) const = 0;
+        virtual std::vector<uint32_t> get_sample_rates(uac_audio_data_format_type fmt) const = 0;
+        virtual std::vector<uint8_t> get_bit_resolutions(uac_audio_data_format_type fmt) const = 0;
+
+        virtual std::unique_ptr<const uac_audio_config_uncompressed> query_config_uncompressed(uac_audio_data_format_type audioDataFormatType,
+                                                                         uint8_t numChannels,
+                                                                         uint32_t sampleRate) const = 0;
     };
 
     class uac_stream_handle;
@@ -145,10 +186,11 @@ namespace uac {
      */
     class uac_device_handle {
     public:
+        virtual ~uac_device_handle() = default;
         virtual void close() = 0;
         virtual std::shared_ptr<uac_device> get_device() const = 0;
-        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) = 0;
-        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) = 0;
+        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func) = 0;
+        virtual std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func, int burst) = 0;
         virtual void detach() = 0;
 
         virtual std::string get_name() const = 0;
@@ -164,16 +206,18 @@ namespace uac {
      */
     class uac_stream_handle {
     public:
+        virtual ~uac_stream_handle() = default;
         virtual void stop() = 0;
         virtual void set_sampling_rate(const uint32_t samplingRate) = 0;
     };
 
     /**
-     * @brief 
-     * 
+     * @brief
+     *
      */
     class uac_audio_route {
     public:
+        virtual ~uac_audio_route() = default;
         virtual bool contains_terminal(uac_terminal_type terminalType) const = 0;
     };
 }

@@ -329,17 +329,17 @@ namespace uac {
         generalDesc.wFormatTag = (uac_audio_data_format_type) TO_WORD(data+5);
     }
 
-    std::shared_ptr<uac_format_type_desc> parse_as_format_type(const uint8_t *data, int size) {
-        std::shared_ptr<uac_format_type_desc> format;
+    std::unique_ptr<uac_format_type_desc> parse_as_format_type(const uint8_t *data, int size) {
+        std::unique_ptr<uac_format_type_desc> format;
         uint8_t bFormatType = data[3];
         switch (bFormatType) {
         case UAC_FORMAT_TYPE_I:
         case UAC_FORMAT_TYPE_III:
-            format = std::shared_ptr<uac_format_type_desc>(parse_as_format_type_1_3(data, size));
+            format = std::unique_ptr<uac_format_type_desc>(parse_as_format_type_1_3(data, size));
             break;
         
         default:
-            format = std::shared_ptr<uac_format_type_desc>((uac_format_type_desc*)malloc(sizeof(uac_format_type_desc)));
+            format = std::unique_ptr<uac_format_type_desc>((uac_format_type_desc*)malloc(sizeof(uac_format_type_desc)));
             format->bFormatType = static_cast<uac_format_type>(bFormatType);
             break;
         }
@@ -448,6 +448,14 @@ namespace uac {
         }
     }
 
+    bool uac_audio_route_impl::contains_terminal_out(uac_terminal_type terminalType) const {
+        return matches_terminals(entry->outTerminal->wTerminalType, terminalType);
+    }
+
+    bool uac_audio_route_impl::contains_terminal_in(uac_terminal_type terminalType) const {
+        return findInputTerminalByType(entry.get(), terminalType) != nullptr;
+    }
+
     bool uac_audio_route_impl::contains_terminal(uac_terminal_type terminalType) const {
         if (matches_terminals(entry->outTerminal->wTerminalType, terminalType)) {
             return true;
@@ -456,13 +464,13 @@ namespace uac {
         }
     }
 
-    bool uac_altsetting::supportsSampleRate(int32_t sampleRate) const {
-        auto& format = formatTypeDesc;
+    bool uac_altsetting::supportsSampleRate(uint32_t sampleRate) const {
         bool result = false;
-        uac_format_type_1 *format1;
-        switch (format->bFormatType) {
+        const uac_format_type_1 *format1;
+        switch (formatTypeDesc->bFormatType) {
             case UAC_FORMAT_TYPE_I:
-                format1 = static_cast<uac_format_type_1 *>(format.get());
+            case UAC_FORMAT_TYPE_III:
+                format1 = getFormatType1();
                 if (format1->bSamFreqType == 0) {
                     result = format1->tLowerSamFreq <= sampleRate &&
                     sampleRate <= format1->tUpperSamFreq;
@@ -479,5 +487,27 @@ namespace uac {
                 break;
         }
         return result;
+    }
+
+    bool uac_altsetting::supportsChannelsCount(uint8_t channelsCount) const {
+        const uac_format_type_1 *format1;
+        switch (formatTypeDesc->bFormatType) {
+            case UAC_FORMAT_TYPE_I:
+            case UAC_FORMAT_TYPE_III:
+                format1 = getFormatType1();
+                return format1->bNrChannels == channelsCount;
+            default:
+                break;
+        }
+        return false;
+    }
+
+    const uac_format_type_1* uac_altsetting::getFormatType1() const {
+        if (formatTypeDesc->bFormatType == UAC_FORMAT_TYPE_I
+        || formatTypeDesc->bFormatType == UAC_FORMAT_TYPE_III) {
+            return reinterpret_cast<uac_format_type_1 *>(formatTypeDesc.get());
+        } else {
+            return nullptr;
+        }
     }
 }

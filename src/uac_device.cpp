@@ -86,10 +86,10 @@ namespace uac {
     }
 
     std::vector<ref_uac_audio_route> uac_device_impl::query_audio_routes(uac_terminal_type termIn, uac_terminal_type termOut) const {
-        auto& audioFunctions = audiocontrol->audio_routes();
+        auto& routes = audiocontrol->audio_routes();
         std::vector<ref_uac_audio_route> elems;
-        for (auto&& aft : audioFunctions) {
-            if (aft.contains_terminal(termOut) && aft.contains_terminal(termIn)) {
+        for (auto&& aft : routes) {
+            if (aft.contains_terminal_out(termOut) && aft.contains_terminal_in(termIn)) {
                 elems.emplace_back(aft);
             }
         }
@@ -137,13 +137,13 @@ namespace uac {
         }
     }
 
-    std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) {
-        return start_streaming(streamIf, setting, cb_func, 1, 0);
+    std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func) {
+        return start_streaming(streamIf, config, cb_func, 1);
     }
 
-    std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) {
+    std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func, int burst) {
         auto* streamIfImpl = static_cast<const uac_stream_if_impl*>(&streamIf);
-        if (setting >= streamIfImpl->altsettings.size()) throw std::invalid_argument("invalid format");
+        if (config.bAlternateSetting > streamIfImpl->altsettings.size()) throw std::invalid_argument("invalid format");
         if (burst < 1) throw std::invalid_argument("invalid burst value");
 
         LOG_DEBUG("claim AC intf(%d)", device->audiocontrol->bInterfaceNumber);
@@ -152,9 +152,9 @@ namespace uac {
             throw usb_exception_impl("libusb_claim_interface()", (libusb_error)errval);
         }
 
-        const auto& altsetting = streamIfImpl->altsettings[setting];
+        const auto& altsetting = streamIfImpl->altsettings[config.bAlternateSetting-1];
         auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting);
-        streamHandle->set_sampling_rate(samplingRate);
+        streamHandle->set_sampling_rate(config.tSampleRate);
         streamHandle->start(cb_func, burst);
         return streamHandle;
     }

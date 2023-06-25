@@ -73,13 +73,20 @@ namespace uac {
     };
 
     class uac_audio_route_impl : public uac_audio_route {
+        friend class uac_device_impl;
+        friend class uac_device_handle_impl;
     public:
         uac_audio_route_impl(std::shared_ptr<uac_topology_entity> entry);
+
         bool contains_terminal(uac_terminal_type terminalType) const override;
 
-        std::shared_ptr<uac_topology_entity> entry;
+        bool contains_terminal_out(uac_terminal_type terminalType) const;
+        bool contains_terminal_in(uac_terminal_type terminalType) const;
+
     private:
         static uac_topology_entity* findInputTerminalByType(uac_topology_entity *entity, uac_terminal_type terminalType);
+
+        std::shared_ptr<uac_topology_entity> entry;
     };
 
     struct uac_endpoint_desc {
@@ -92,17 +99,25 @@ namespace uac {
         uint8_t bAlternateSetting;
         uac_as_general general;
         uac_endpoint_desc endpoint;
-        std::shared_ptr<uac_format_type_desc> formatTypeDesc;
+        std::unique_ptr<uac_format_type_desc> formatTypeDesc;
 
-        bool supportsSampleRate(int32_t sampleRate) const;
+        const uac_format_type_1* getFormatType1() const;
+        bool supportsSampleRate(uint32_t sampleRate) const;
+        bool supportsChannelsCount(uint8_t channelsCount) const;
     };
 
     class uac_stream_if_impl : public uac_stream_if {
     public:
         uac_stream_if_impl(uint8_t bInterfaceNr) : bInterfaceNr(bInterfaceNr) {}
-        int find_stream_setting(int32_t sampleRate) const override;
-        int get_bytes_per_transfer(uint8_t settingIdx) const override;
-        std::vector<uac_format> get_formats() const override;
+
+        std::vector<uac_audio_data_format_type> get_audio_formats() const override;
+        std::vector<uint8_t> get_channel_counts(uac_audio_data_format_type fmt) const override;
+        std::vector<uint32_t> get_sample_rates(uac_audio_data_format_type fmt) const override;
+        std::vector<uint8_t> get_bit_resolutions(uac_audio_data_format_type fmt) const override;
+
+        std::unique_ptr<const uac_audio_config_uncompressed> query_config_uncompressed(uac_audio_data_format_type audioDataFormatType,
+                                                                         uint8_t numChannels,
+                                                                         uint32_t sampleRate) const override;
 
         uint8_t bInterfaceNr;
         std::vector<uac_altsetting> altsettings;

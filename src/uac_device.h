@@ -63,8 +63,8 @@ namespace uac {
         void close() override;
         void detach() override;
 
-        std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func) override;
-        std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, uint8_t setting, stream_cb_func cb_func, int burst, uint32_t samplingRate) override;
+        std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func) override;
+        std::shared_ptr<uac_stream_handle> start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func, int burst) override;
 
         std::string get_name() const override;
 

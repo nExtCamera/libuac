@@ -85,30 +85,6 @@ namespace uac {
     };
 
     /**
-     * (Frmts) Table A.1-3 Audio Data Format Type I-III Codes
-     */
-    enum uac_audio_data_format_type : uint16_t {
-        UAC_FORMAT_DATA_TYPE_I_UNDEFINED = 0x0000,
-        UAC_FORMAT_DATA_PCM = 0x0001,
-        UAC_FORMAT_DATA_PCM8 = 0x0002,
-        UAC_FORMAT_DATA_IEEE_FLOAT = 0x0003,
-        UAC_FORMAT_DATA_ALAW = 0x0004,
-        UAC_FORMAT_DATA_MULAW = 0x0005,
-
-        UAC_FORMAT_DATA_TYPE_II_UNDEFINED = 0x1000,
-        UAC_FORMAT_DATA_MPEG = 0x1001,
-        UAC_FORMAT_DATA_AC3 = 0x1002,
-
-        UAC_FORMAT_DATA_TYPE_III_UNDEFINED = 0x2000,
-        UAC_FORMAT_DATA_IEC1937_AC3 = 0x2001,
-        UAC_FORMAT_DATA_IEC1937_MPEG1 = 0x2002,
-        UAC_FORMAT_DATA_IEC1937_MPEG2 = 0x2003,
-        UAC_FORMAT_DATA_IEC1937_MPEG2_EXT = 0x2004,
-        UAC_FORMAT_DATA_IEC1937_MPEG2_L1_LS = 0x2005,
-        UAC_FORMAT_DATA_IEC1937_MPEG2_L2_LS = 0x2006
-    };
-
-    /**
      * Table 4-2: Class-Specific AC Interface Header Descriptor
      */
     struct uac_ac_header {
@@ -189,7 +165,7 @@ namespace uac {
     struct uac_as_general {
         uint8_t  bTerminalLink;
         uint8_t  bDelay;
-        uac_audio_data_format_type wFormatTag;
+        uint16_t wFormatTag;
     };
 
     /**
