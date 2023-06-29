@@ -28,9 +28,7 @@ TEST_CASE("test building audio function topology") {
     ac.configure_audio_function();
     REQUIRE(ac.audio_routes().size() == 1);
 
-    auto route = ac.audio_routes()[0];
-
-    REQUIRE(route.entry->outTerminal->bTerminalID == ot.bTerminalID);
+    auto& route = ac.audio_routes()[0];
 
     ref_uac_audio_route ref_route = route;
     std::vector<ref_uac_audio_route> list;

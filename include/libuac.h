@@ -119,13 +119,42 @@ namespace uac {
      */
     class uac_context {
     public:
+        /**
+         * @brief Creates a new context using the default LibUSB context.
+         * 
+         * It will create a new thread that will handle USB events.
+         * 
+         * @return std::shared_ptr<uac_context> 
+         */
+        static std::shared_ptr<uac_context> create();
+
+        /**
+         * @brief Creates a new context using the given LibUSB context.
+         * 
+         * Make sure to setup your own event handling loop.
+         * 
+         * @param usb_ctx 
+         * @return std::shared_ptr<uac_context> 
+         */
+        static std::shared_ptr<uac_context> create(libusb_context *usb_ctx);
         virtual ~uac_context() = default;
+
+        /**
+         * @brief Queries all devices which support USB Audio Class.
+         * 
+         * @return std::vector<std::shared_ptr<uac_device>> 
+         */
         virtual std::vector<std::shared_ptr<uac_device>> query_all_devices() = 0;
 
+        /**
+         * @brief Wraps an already opened device file descriptor.
+         * 
+         * This is a useful method to access USB device on Android.
+         * 
+         * @param fd 
+         * @return std::shared_ptr<uac_device_handle> 
+         */
         virtual std::shared_ptr<uac_device_handle> wrap(int fd) = 0;
-
-        static std::shared_ptr<uac_context> create();
-        static std::shared_ptr<uac_context> create(libusb_context *usb_ctx);
     };
 
     class uac_audio_route;
@@ -133,18 +162,54 @@ namespace uac {
     using ref_uac_audio_route = std::reference_wrapper<const uac_audio_route>;
 
     /**
-     * The Audio device representation.
+     * The USB Audio device representation.
      */
     class uac_device {
     public:
         virtual ~uac_device() = default;
+        /**
+         * @brief Get the Vendor ID
+         * 
+         * @return uint16_t 
+         */
         virtual uint16_t get_vid() const = 0;
+        /**
+         * @brief Get the Product ID
+         * 
+         * @return uint16_t 
+         */
         virtual uint16_t get_pid() const = 0;
 
+        /**
+         * @brief Opens this device for audio streaming.
+         * 
+         * @return std::shared_ptr<uac_device_handle> 
+         */
         virtual std::shared_ptr<uac_device_handle> open() = 0;
 
+        /**
+         * @brief Queries audio routes based on I/O terminals.
+         * 
+         * Audio routes may contain many different units, but they always begin and end with an input terminal and an output terminal.
+         * Each Audio device supports at least one audio route, so this method allows selecting any specific route.
+         * 
+         * The UAC_TERMINAL_USB_STREAMING output terminal is usually used for a recording device, ie. microphone.
+         * The UAC_TERMINAL_USB_STREAMING input terminal is usually used for a speaker device.
+         * 
+         * @param termIn 
+         * @param termOut 
+         * @return std::vector<ref_uac_audio_route> 
+         */
         virtual std::vector<ref_uac_audio_route> query_audio_routes(uac_terminal_type termIn, uac_terminal_type termOut) const = 0;
 
+        /**
+         * @brief Get the stream interface based on the given route.
+         * 
+         * The stream interface is required for audio streaming through USB.
+         * 
+         * @param route 
+         * @return const uac_stream_if& 
+         */
         virtual const uac_stream_if& get_stream_interface(const uac_audio_route& route) const = 0;
     };
 
