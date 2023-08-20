@@ -143,8 +143,14 @@ namespace uac {
 
     std::shared_ptr<uac_stream_handle> uac_device_handle_impl::start_streaming(const uac_stream_if& streamIf, const uac_audio_config_uncompressed& config, stream_cb_func cb_func, int burst) {
         auto* streamIfImpl = static_cast<const uac_stream_if_impl*>(&streamIf);
-        if (config.bAlternateSetting > streamIfImpl->altsettings.size()) throw std::invalid_argument("invalid format");
+        
         if (burst < 1) throw std::invalid_argument("invalid burst value");
+
+        auto result = std::find_if(streamIfImpl->altsettings.begin(), streamIfImpl->altsettings.end(), [config](const uac_altsetting& alt) {
+            return config.bAlternateSetting == alt.bAlternateSetting;
+        });
+        if (result == streamIfImpl->altsettings.end()) throw std::invalid_argument("invalid format");
+        const auto& altsetting = *result;
 
         LOG_DEBUG("claim AC intf(%d)", device->audiocontrol->bInterfaceNumber);
         int errval = libusb_claim_interface(usb_handle, device->audiocontrol->bInterfaceNumber);
@@ -152,7 +158,6 @@ namespace uac {
             throw usb_exception_impl("libusb_claim_interface()", (libusb_error)errval);
         }
 
-        const auto& altsetting = streamIfImpl->altsettings[config.bAlternateSetting-1];
         auto streamHandle = std::make_shared<uac_stream_handle_impl>(shared_from_this(), streamIfImpl->bInterfaceNr, altsetting);
         streamHandle->set_sampling_rate(config.tSampleRate);
         streamHandle->start(cb_func, burst);
