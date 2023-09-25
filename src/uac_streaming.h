@@ -24,7 +24,7 @@ namespace uac {
 
     class uac_stream_handle_impl : public uac_stream_handle {
     public:
-        uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting);
+        uac_stream_handle_impl(const std::shared_ptr<uac_device_handle_impl>& dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting);
         ~uac_stream_handle_impl();
 
         void start(stream_cb_func stream_cb_func, int burst);
@@ -32,6 +32,17 @@ namespace uac {
 
         void set_sampling_rate(const uint32_t samplingRate) override;
         
+    protected:
+        void set_sampling_freq(uint32_t sampling);
+        uint32_t get_sampling_freq();
+
+    private:
+        static void cb(libusb_transfer *transfer);
+        const std::shared_ptr<uac_device_handle_impl> dev_handle;
+
+        const uac_altsetting& altsetting;
+        uint8_t bInterfaceNr;
+
         stream_cb_func cb_func;
 
         std::mutex mMutex;
@@ -42,19 +53,10 @@ namespace uac {
 
         // quirks
         uint offset_stream;
-    protected:
-        void set_sampling_freq(uint32_t sampling);
-        uint32_t get_sampling_freq();
-
-    private:
-        std::shared_ptr<uac_device_handle_impl> dev_handle;
-
-        const uac_altsetting& altsetting;
-        uint8_t bInterfaceNr;
 
         uint32_t target_sampling_rate;
 
-        bool active = false;
+        std::atomic<bool> active = false;
         std::vector<libusb_transfer*> transfers;
     };
 }

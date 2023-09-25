@@ -244,7 +244,7 @@ namespace uac {
     };
 
     class uac_stream_handle;
-    using stream_cb_func = std::function<void(uint8_t*, int)>;
+    using stream_cb_func = std::function<void(uint8_t*, uint)>;
 
     /**
      * The device can be operated through this handle.

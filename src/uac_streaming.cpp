@@ -24,7 +24,7 @@
 
 namespace uac {
 
-    static void cb(libusb_transfer *transfer) {
+    void uac_stream_handle_impl::cb(libusb_transfer *transfer) {
         auto *strmh = static_cast<uac_stream_handle_impl*>(transfer->user_data);
         int errval;
         bool dropTransfer = false;
@@ -48,7 +48,7 @@ namespace uac {
             // fall through
             case LIBUSB_TRANSFER_TIMED_OUT:
                 // resubmit transfer
-                errval = libusb_submit_transfer(transfer);
+                errval = strmh->active ? libusb_submit_transfer(transfer) : LIBUSB_ERROR_INTERRUPTED;
                 if (errval != LIBUSB_SUCCESS) {
                     LOG_DEBUG("on time out: submit transfer... %s", libusb_error_name(errval));
                     dropTransfer = true;
@@ -166,7 +166,7 @@ namespace uac {
         return {nullptr};
     }
 
-    uac_stream_handle_impl::uac_stream_handle_impl(std::shared_ptr<uac_device_handle_impl> dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting) :
+    uac_stream_handle_impl::uac_stream_handle_impl(const std::shared_ptr<uac_device_handle_impl>& dev_handle, uint8_t interfaceNr, const uac_altsetting& altsetting) :
         dev_handle(dev_handle), bInterfaceNr(interfaceNr), altsetting(altsetting), mActiveTransfers(0) {
 
         int errval;
@@ -242,12 +242,12 @@ namespace uac {
     void uac_stream_handle_impl::stop() {
         if (!active) return;
         LOG_DEBUG("Stop stream intf(%d), altsetting=%d", bInterfaceNr, altsetting.bAlternateSetting);
+        active = false;
         for (libusb_transfer* transfer : transfers) {
             libusb_cancel_transfer(transfer);
         }
         
         libusb_set_interface_alt_setting(dev_handle->usb_handle, bInterfaceNr, 0);
-        active = false;
 
         if (transfers.empty()) {
             return;
