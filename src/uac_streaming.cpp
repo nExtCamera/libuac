@@ -198,8 +198,8 @@ namespace uac {
     void uac_stream_handle_impl::start(stream_cb_func stream_cb_func, int burst) {
         this->cb_func = std::move(stream_cb_func);
         const int iso_packets = burst;
-        const int total_transfer_size = iso_packets * altsetting.endpoint.wMaxPacketSize;
-        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", altsetting.endpoint.wMaxPacketSize, total_transfer_size);
+        const int transfer_size = iso_packets * altsetting.endpoint.wMaxPacketSize;
+        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", altsetting.endpoint.wMaxPacketSize, transfer_size);
         auto bmAttributes = altsetting.endpoint.iso_desc.bmAttributes;
         if (bmAttributes & SAMPLING_FREQ_CONTROL) { // the endpoints supports sampling frequency, so probe it
             set_sampling_freq(target_sampling_rate);
@@ -211,22 +211,29 @@ namespace uac {
             throw usb_exception_impl("libusb_set_interface_alt_setting()", (libusb_error)errval);
         }
 
-        mActiveTransfers = NUM_ISO_TRANSFERS;
+        mActiveTransfers = 0;
         for (int i = 0; i < NUM_ISO_TRANSFERS; ++i) {
             libusb_transfer* transfer = libusb_alloc_transfer(iso_packets);
-            uint8_t *buffer = new uint8_t[total_transfer_size];
-            memset(buffer, 0, total_transfer_size);
+            if (transfer == nullptr) {
+                break;
+            }
+            uint8_t *buffer = new (std::nothrow) uint8_t[transfer_size];
+            if (buffer == nullptr) {
+                libusb_free_transfer(transfer);
+                break;
+            }
+            memset(buffer, 0, transfer_size);
 
-            libusb_fill_iso_transfer(transfer, dev_handle->usb_handle, altsetting.endpoint.bEndpointAddress, buffer, total_transfer_size, iso_packets, cb, this, 1000);
+            libusb_fill_iso_transfer(transfer, dev_handle->usb_handle, altsetting.endpoint.bEndpointAddress, buffer, transfer_size, iso_packets, cb, this, 1000);
             libusb_set_iso_packet_lengths(transfer, altsetting.endpoint.wMaxPacketSize);
             errval = libusb_submit_transfer(transfer);
             LOG_DEBUG("submit transfer %d... %s", i, libusb_error_name(errval));
             if (errval == LIBUSB_SUCCESS) {
                 transfers.push_back(transfer);
+                ++mActiveTransfers;
             } else {
-                delete[] buffer;
                 libusb_free_transfer(transfer);
-                mActiveTransfers--;
+                delete[] buffer;
             }
         }
 
