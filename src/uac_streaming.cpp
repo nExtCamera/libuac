@@ -20,7 +20,7 @@
 #include "logging.h"
 #include "uac_exceptions.h"
 
-#define NUM_ISO_TRANSFERS 16
+#define NUM_ISO_TRANSFERS 8
 
 namespace uac {
 
@@ -32,7 +32,13 @@ namespace uac {
             case LIBUSB_TRANSFER_COMPLETED:
                 for (int packet_id = 0; packet_id < transfer->num_iso_packets; ++packet_id) {
                     libusb_iso_packet_descriptor* packet = transfer->iso_packet_desc + packet_id;
-                    //LOG_DEBUG("packet %d actual_len=%d", packet_id, packet->actual_length);
+                    //LOG_DEBUG("packet %d actual_len=%u", packet_id, packet->actual_length);
+                    if (packet->actual_length > packet->length) {
+                        LOG_WARN("kernel misbehaviour with returned actual_length (%u>%u)", packet->actual_length, packet->length);
+                        strmh->usbTransferError = UAC_ERROR_KERNEL_MALFUNCTION;
+                        dropTransfer = true;
+                        break;
+                    }
                     if (packet->status == LIBUSB_TRANSFER_COMPLETED && packet->actual_length > 0) {
                         uint8_t *pktbuf = libusb_get_iso_packet_buffer(transfer, packet_id);
                         if (strmh->offset_stream > 0) {
@@ -45,7 +51,8 @@ namespace uac {
                         strmh->cb_func(pktbuf, packet->actual_length);
                     }
                 }
-            // fall through
+                if (dropTransfer) break;
+                // else, fall through
             case LIBUSB_TRANSFER_TIMED_OUT:
                 // resubmit transfer
                 errval = strmh->active ? libusb_submit_transfer(transfer) : LIBUSB_ERROR_INTERRUPTED;
@@ -67,6 +74,9 @@ namespace uac {
             LOG_DEBUG("drop transfer... %d", strmh->mActiveTransfers);
             std::unique_lock lock(strmh->mMutex);
             strmh->mActiveTransfers--;
+            if (strmh->is_active()) {
+                strmh->usbTransferError = UAC_ERROR_TRANSFERS_WITHERED;
+            }
             lock.unlock();
             strmh->mCv.notify_all();
         }
@@ -198,8 +208,9 @@ namespace uac {
     void uac_stream_handle_impl::start(stream_cb_func stream_cb_func, int burst) {
         this->cb_func = std::move(stream_cb_func);
         const int iso_packets = burst;
-        const int transfer_size = iso_packets * altsetting.endpoint.wMaxPacketSize;
-        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, total_size=%d", altsetting.endpoint.wMaxPacketSize, transfer_size);
+        const uint16_t wMaxPacketSize = altsetting.endpoint.wMaxPacketSize;
+        const int transfer_size = iso_packets * wMaxPacketSize;
+        LOG_DEBUG("configure iso packets: wMaxPacketSize=%d, transfer_size=%d", wMaxPacketSize, transfer_size);
         auto bmAttributes = altsetting.endpoint.iso_desc.bmAttributes;
         if (bmAttributes & SAMPLING_FREQ_CONTROL) { // the endpoints supports sampling frequency, so probe it
             set_sampling_freq(target_sampling_rate);
@@ -225,7 +236,7 @@ namespace uac {
             memset(buffer, 0, transfer_size);
 
             libusb_fill_iso_transfer(transfer, dev_handle->usb_handle, altsetting.endpoint.bEndpointAddress, buffer, transfer_size, iso_packets, cb, this, 1000);
-            libusb_set_iso_packet_lengths(transfer, altsetting.endpoint.wMaxPacketSize);
+            libusb_set_iso_packet_lengths(transfer, wMaxPacketSize);
             errval = libusb_submit_transfer(transfer);
             LOG_DEBUG("submit transfer %d... %s", i, libusb_error_name(errval));
             if (errval == LIBUSB_SUCCESS) {
@@ -248,6 +259,7 @@ namespace uac {
 
     void uac_stream_handle_impl::stop() {
         if (!active) return;
+        active = false;
         LOG_DEBUG("Stop stream intf(%d), altsetting=%d", bInterfaceNr, altsetting.bAlternateSetting);
         active = false;
         for (libusb_transfer* transfer : transfers) {
@@ -325,4 +337,11 @@ namespace uac {
         return samplingFreq;
     }
 
+    error_code uac_stream_handle_impl::check_streaming_error() const {
+        return usbTransferError;
+    }
+
+    bool uac_stream_handle_impl::is_active() const {
+        return active;
+    }
 }

@@ -33,7 +33,7 @@ namespace uac {
          *
          * @return const char*
          */
-        virtual const char* what() const noexcept override = 0;
+        const char* what() const noexcept override = 0;
 
         /**
          * @brief The libusb error code
@@ -41,6 +41,14 @@ namespace uac {
          * @return libusb_error
          */
         virtual libusb_error error_code() const = 0;
+    };
+
+    enum error_code {
+        UAC_NO_ERROR = 0,
+        UAC_ERROR_KERNEL_MALFUNCTION,
+        UAC_ERROR_TRANSFERS_WITHERED,
+        UAC_ERROR_UNKNOWN,
+
     };
 
     /**
@@ -273,7 +281,9 @@ namespace uac {
     public:
         virtual ~uac_stream_handle() = default;
         virtual void stop() = 0;
-        virtual void set_sampling_rate(const uint32_t samplingRate) = 0;
+        virtual void set_sampling_rate(uint32_t samplingRate) = 0;
+
+        virtual error_code check_streaming_error() const = 0;
     };
 
     /**
