@@ -74,7 +74,7 @@ namespace uac {
             LOG_DEBUG("drop transfer... %d", strmh->mActiveTransfers);
             std::unique_lock lock(strmh->mMutex);
             strmh->mActiveTransfers--;
-            if (strmh->is_active()) {
+            if (strmh->is_active() && strmh->usbTransferError == UAC_NO_ERROR) {
                 strmh->usbTransferError = UAC_ERROR_TRANSFERS_WITHERED;
             }
             lock.unlock();
